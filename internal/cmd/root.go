@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/api"
+
 	"github.com/spf13/cobra"
 
 	"github.com/github/gh-combine/internal/version"
@@ -28,6 +29,7 @@ var (
 	ignoreLabels   []string
 	reposFile      string
 	minimum        int
+	defaultOwner   string
 )
 
 // NewRootCmd creates the root command for the gh-combine CLI
@@ -36,41 +38,50 @@ func NewRootCmd() *cobra.Command {
 		Use:   "combine [repo1,repo2,...]",
 		Short: "Combine multiple pull requests into a single PR",
 		Long: `Combine multiple pull requests that match specific criteria into a single PR.
-	Examples:
-	  # Basic usage with a single repository
-	  gh combine octocat/hello-world
-	
-	  # Multiple repositories (comma-separated)
-	  gh combine octocat/repo1,octocat/repo2
-	
-	  # Using a file with repository names (one per line)
-	  gh combine --file repos.txt
-	
-	  # Filter PRs by branch name
-	  gh combine octocat/hello-world --branch-prefix dependabot-
-	  gh combine octocat/hello-world --branch-suffix -update
-	  gh combine octocat/hello-world --branch-regex "dependabot/.*"
-	
-	  # Filter PRs by labels
-	  gh combine octocat/hello-world --label dependencies        # PRs must have this single label
-	  gh combine octocat/hello-world --labels security,dependencies  # PRs must have ALL these labels
-	  
-	  # Exclude PRs by labels
-	  gh combine octocat/hello-world --ignore-label wip          # Ignore PRs with this label
-	  gh combine octocat/hello-world --ignore-labels wip,draft   # Ignore PRs with ANY of these labels
-	
-	  # Set requirements for PRs to be combined
-	  gh combine octocat/hello-world --require-ci                # Only include PRs with passing CI
-	  gh combine octocat/hello-world --require-approved          # Only include approved PRs
-	  gh combine octocat/hello-world --minimum 3                 # Need at least 3 matching PRs
-	
-	  # Add metadata to combined PR
-	  gh combine octocat/hello-world --add-labels security,dependencies   # Add these labels to the new PR
-	  gh combine octocat/hello-world --assignees octocat,hubot            # Assign users to the new PR
-	
-	  # Additional options
-	  gh combine octocat/hello-world --autoclose                 # Close source PRs when combined PR is merged
-	  gh combine octocat/hello-world --update-branch             # Update the branch of the combined PR`,
+    Examples:
+      # Basic usage with a single repository
+      gh combine octocat/hello-world
+    
+      # Multiple repositories (comma-separated)
+      gh combine octocat/repo1,octocat/repo2
+
+	  # Multiple repositories (no commas)
+	  gh combine octocat/repo1 octocat/repo2
+      
+      # Using default owner for repositories
+      gh combine --owner octocat repo1 repo2
+
+	  # Using default owner for only some repositories
+	  gh combine --owner octocat repo1 octocat/repo2
+    
+      # Using a file with repository names (one per line: owner/repo format)
+      gh combine --file repos.txt
+    
+      # Filter PRs by branch name
+      gh combine octocat/hello-world --branch-prefix dependabot/
+      gh combine octocat/hello-world --branch-suffix -update
+      gh combine octocat/hello-world --branch-regex "dependabot/.*"
+    
+      # Filter PRs by labels
+      gh combine octocat/hello-world --label dependencies        # PRs must have this single label
+      gh combine octocat/hello-world --labels security,dependencies  # PRs must have ALL these labels
+      
+      # Exclude PRs by labels
+      gh combine octocat/hello-world --ignore-label wip          # Ignore PRs with this label
+      gh combine octocat/hello-world --ignore-labels wip,draft   # Ignore PRs with ANY of these labels
+    
+      # Set requirements for PRs to be combined
+      gh combine octocat/hello-world --require-ci                # Only include PRs with passing CI
+      gh combine octocat/hello-world --require-approved          # Only include approved PRs
+      gh combine octocat/hello-world --minimum 3                 # Need at least 3 matching PRs
+    
+      # Add metadata to combined PR
+      gh combine octocat/hello-world --add-labels security,dependencies   # Add these labels to the new PR
+      gh combine octocat/hello-world --assignees octocat,hubot            # Assign users to the new PR
+    
+      # Additional options
+      gh combine octocat/hello-world --autoclose                 # Close source PRs when combined PR is merged
+      gh combine octocat/hello-world --update-branch             # Update the branch of the combined PR`,
 		RunE: runCombine,
 	}
 
@@ -98,6 +109,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.Flags().BoolVar(&updateBranch, "update-branch", false, "Update the branch of the combined PR if possible")
 	rootCmd.Flags().StringVar(&reposFile, "file", "", "File containing repository names, one per line")
 	rootCmd.Flags().IntVar(&minimum, "minimum", 2, "Minimum number of PRs to combine")
+	rootCmd.Flags().StringVar(&defaultOwner, "owner", "", "Default owner for repositories (if not specified in repo name or missing from file inputs)")
 
 	// Add deprecated flags for backward compatibility
 	// rootCmd.Flags().IntVar(&minimum, "min-combine", 2, "Minimum number of PRs to combine (deprecated, use --minimum)")
@@ -130,7 +142,7 @@ func runCombine(cmd *cobra.Command, args []string) error {
 	defer spinner.Stop()
 
 	// Parse repositories from args or file
-	repos, err := ParseRepositories(args, reposFile)
+	repos, err := ParseRepositories(args, reposFile, defaultOwner)
 	if err != nil {
 		return fmt.Errorf("failed to parse repositories: %w", err)
 	}
