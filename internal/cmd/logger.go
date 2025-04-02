@@ -34,7 +34,7 @@ func init() {
 
 	opts := &slog.HandlerOptions{
 		Level:       level,
-		AddSource:   true,               // Include source file and line number for context
+		AddSource:   false,              // Include source file and line number for context
 		ReplaceAttr: humanFriendlyAttrs, // Customize log attributes for readability
 	}
 
@@ -47,9 +47,6 @@ func init() {
 // humanFriendlyAttrs customizes log attributes for human readability
 func humanFriendlyAttrs(groups []string, a slog.Attr) slog.Attr {
 	switch a.Key {
-	case slog.TimeKey:
-		// Format time as a human-readable string
-		a.Value = slog.StringValue(a.Value.Time().Format("2006-01-02 15:04:05"))
 	case slog.LevelKey:
 		// Capitalize log levels for better visibility
 		a.Value = slog.StringValue(strings.ToUpper(a.Value.String()))
