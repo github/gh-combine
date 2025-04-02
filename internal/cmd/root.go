@@ -20,7 +20,7 @@ var (
 	selectLabel    string
 	selectLabels   []string
 	addLabels      []string
-	assignees      []string
+	addAssignees   []string
 	requireCI      bool
 	mustBeApproved bool
 	autoclose      bool
@@ -58,7 +58,7 @@ func NewRootCmd() *cobra.Command {
       gh combine --file repos.txt
     
       # Filter PRs by branch name
-      gh combine octocat/hello-world --branch-prefix dependabot/
+      gh combine octocat/hello-world --branch-prefix dependabot/ # Only include PRs with the standard dependabot branch prefix
       gh combine octocat/hello-world --branch-suffix -update
       gh combine octocat/hello-world --branch-regex "dependabot/.*"
     
@@ -77,7 +77,7 @@ func NewRootCmd() *cobra.Command {
     
       # Add metadata to combined PR
       gh combine octocat/hello-world --add-labels security,dependencies   # Add these labels to the new PR
-      gh combine octocat/hello-world --assignees octocat,hubot            # Assign users to the new PR
+      gh combine octocat/hello-world --add-assignees octocat,hubot        # Assign users to the new PR
     
       # Additional options
       gh combine octocat/hello-world --autoclose                 # Close source PRs when combined PR is merged
@@ -102,7 +102,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.Flags().StringSliceVar(&addLabels, "add-labels", nil, "Comma-separated list of labels to add to the combined PR")
 
 	// Other flags
-	rootCmd.Flags().StringSliceVar(&assignees, "assignees", nil, "Comma-separated list of users to assign to the combined PR")
+	rootCmd.Flags().StringSliceVar(&addAssignees, "add-assignees", nil, "Comma-separated list of users to assign to the combined PR")
 	rootCmd.Flags().BoolVar(&requireCI, "require-ci", false, "Only include PRs with passing CI checks")
 	rootCmd.Flags().BoolVar(&mustBeApproved, "require-approved", false, "Only include PRs that have been approved")
 	rootCmd.Flags().BoolVar(&autoclose, "autoclose", false, "Close source PRs when combined PR is merged")
