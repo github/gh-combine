@@ -168,89 +168,120 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 	}
 
 	for _, repo := range repos {
+		// Check if context was cancelled (CTRL+C pressed)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			// Continue processing
+		}
+
 		spinner.UpdateMessage("Processing " + repo)
 		Logger.Debug("Processing repository", "repo", repo)
 
-		// Parse owner and repo name
-		parts := strings.Split(repo, "/")
-		if len(parts) != 2 {
-			Logger.Warn("Invalid repository format, skipping", "repo", repo)
+		// Process the repository
+		if err := processRepository(ctx, restClient, spinner, repo); err != nil {
+			if ctx.Err() != nil {
+				// If the context was cancelled, stop processing
+				return ctx.Err()
+			}
+			// Otherwise just log the error and continue
+			Logger.Warn("Failed to process repository", "repo", repo, "error", err)
+			continue
+		}
+	}
+
+	return nil
+}
+
+// processRepository handles a single repository's PRs
+func processRepository(ctx context.Context, client *api.RESTClient, spinner *Spinner, repo string) error {
+	// Parse owner and repo name
+	parts := strings.Split(repo, "/")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid repository format: %s", repo)
+	}
+
+	owner := parts[0]
+	repoName := parts[1]
+
+	// Check for cancellation
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		// Continue processing
+	}
+
+	// Get open PRs for the repository
+	var pulls []struct {
+		Number int
+		Title  string
+		Head   struct {
+			Ref string
+		}
+		Base struct {
+			Ref string
+			SHA string
+		}
+		Labels []struct {
+			Name string
+		}
+	}
+
+	endpoint := fmt.Sprintf("repos/%s/%s/pulls?state=open", owner, repoName)
+	if err := client.Get(endpoint, &pulls); err != nil {
+		return err
+	}
+
+	// Check for cancellation again
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		// Continue processing
+	}
+
+	// Filter PRs based on criteria
+	var matchedPRs []struct {
+		Number  int
+		Title   string
+		Branch  string
+		Base    string
+		BaseSHA string
+	}
+
+	for _, pull := range pulls {
+		branch := pull.Head.Ref
+
+		// Check if PR matches all filtering criteria
+		if !PrMatchesCriteria(branch, pull.Labels) {
 			continue
 		}
 
-		owner := parts[0]
-		repoName := parts[1]
+		// TODO: Implement CI/approval status checking
 
-		// Get open PRs for the repository
-		var pulls []struct {
-			Number int
-			Title  string
-			Head   struct {
-				Ref string
-			}
-			Base struct {
-				Ref string
-				SHA string
-			}
-			Labels []struct {
-				Name string
-			}
-		}
-
-		endpoint := fmt.Sprintf("repos/%s/%s/pulls?state=open", owner, repoName)
-		if err := restClient.Get(endpoint, &pulls); err != nil {
-			Logger.Warn("Failed to fetch PRs", "repo", repo, "error", err)
-			continue
-		}
-
-		// Filter PRs based on criteria
-		var matchedPRs []struct {
+		matchedPRs = append(matchedPRs, struct {
 			Number  int
 			Title   string
 			Branch  string
 			Base    string
 			BaseSHA string
-		}
-
-		for _, pull := range pulls {
-			branch := pull.Head.Ref
-
-			// Check if PR matches all filtering criteria
-			if !PrMatchesCriteria(branch, pull.Labels) {
-				continue
-			}
-
-			// TODO: Implement CI/approval status checking
-
-			matchedPRs = append(matchedPRs, struct {
-				Number  int
-				Title   string
-				Branch  string
-				Base    string
-				BaseSHA string
-			}{
-				Number:  pull.Number,
-				Title:   pull.Title,
-				Branch:  branch,
-				Base:    pull.Base.Ref,
-				BaseSHA: pull.Base.SHA,
-			})
-		}
-
-		// Check if we have enough PRs to combine
-		if len(matchedPRs) < minimum {
-			Logger.Debug("Not enough PRs match criteria", "repo", repo, "matched", len(matchedPRs), "required", minimum)
-			continue
-		}
-
-		// TODO: Implement PR combining logic
-		// 1. Create combined branch
-		// 2. Merge matched PR branches
-		// 3. Create combined PR
-		// 4. Add labels and assignees
-
-		Logger.Debug("Matched PRs", "repo", repo, "count", len(matchedPRs))
+		}{
+			Number:  pull.Number,
+			Title:   pull.Title,
+			Branch:  branch,
+			Base:    pull.Base.Ref,
+			BaseSHA: pull.Base.SHA,
+		})
 	}
 
+	// Check if we have enough PRs to combine
+	if len(matchedPRs) < minimum {
+		Logger.Debug("Not enough PRs match criteria", "repo", repo, "matched", len(matchedPRs), "required", minimum)
+		return nil
+	}
+
+	Logger.Debug("Matched PRs", "repo", repo, "count", len(matchedPRs))
 	return nil
 }
