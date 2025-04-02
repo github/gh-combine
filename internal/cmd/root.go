@@ -20,16 +20,18 @@ var (
 	branchPrefix   string
 	branchSuffix   string
 	branchRegex    string
-	labels         []string
+	selectLabel    string
+	selectLabels   []string
+	addLabels      []string
 	assignees      []string
-	mustBeGreen    bool
+	requireCI      bool
 	mustBeApproved bool
 	autoclose      bool
 	updateBranch   bool
 	ignoreLabel    string
-	selectLabel    string
+	ignoreLabels   []string
 	reposFile      string
-	minCombine     int
+	minimum        int
 )
 
 // NewRootCmd creates the root command for the gh-combine CLI
@@ -38,14 +40,41 @@ func NewRootCmd() *cobra.Command {
 		Use:   "combine [repo1,repo2,...]",
 		Short: "Combine multiple pull requests into a single PR",
 		Long: `Combine multiple pull requests that match specific criteria into a single PR.
-Examples:
-  gh combine octocat/hello-world
-  gh combine octocat/repo1,octocat/repo2
-  gh combine --file repos.txt
-  gh combine octocat/hello-world --branch-prefix dependabot-
-  gh combine octocat/hello-world --branch-regex "dependabot/.*"
-  gh combine octocat/hello-world --labels security,dependencies
-  gh combine octocat/hello-world --select-label dependencies`,
+	Examples:
+	  # Basic usage with a single repository
+	  gh combine octocat/hello-world
+	
+	  # Multiple repositories (comma-separated)
+	  gh combine octocat/repo1,octocat/repo2
+	
+	  # Using a file with repository names (one per line)
+	  gh combine --file repos.txt
+	
+	  # Filter PRs by branch name
+	  gh combine octocat/hello-world --branch-prefix dependabot-
+	  gh combine octocat/hello-world --branch-suffix -update
+	  gh combine octocat/hello-world --branch-regex "dependabot/.*"
+	
+	  # Filter PRs by labels
+	  gh combine octocat/hello-world --label dependencies        # PRs must have this single label
+	  gh combine octocat/hello-world --labels security,dependencies  # PRs must have ALL these labels
+	  
+	  # Exclude PRs by labels
+	  gh combine octocat/hello-world --ignore-label wip          # Ignore PRs with this label
+	  gh combine octocat/hello-world --ignore-labels wip,draft   # Ignore PRs with ANY of these labels
+	
+	  # Set requirements for PRs to be combined
+	  gh combine octocat/hello-world --require-ci                # Only include PRs with passing CI
+	  gh combine octocat/hello-world --require-approved          # Only include approved PRs
+	  gh combine octocat/hello-world --minimum 3                 # Need at least 3 matching PRs
+	
+	  # Add metadata to combined PR
+	  gh combine octocat/hello-world --add-labels security,dependencies   # Add these labels to the new PR
+	  gh combine octocat/hello-world --assignees octocat,hubot            # Assign users to the new PR
+	
+	  # Additional options
+	  gh combine octocat/hello-world --autoclose                 # Close source PRs when combined PR is merged
+	  gh combine octocat/hello-world --update-branch             # Update the branch of the combined PR`,
 		RunE: runCombine,
 	}
 
@@ -53,16 +82,32 @@ Examples:
 	rootCmd.Flags().StringVar(&branchPrefix, "branch-prefix", "", "Branch prefix to filter PRs")
 	rootCmd.Flags().StringVar(&branchSuffix, "branch-suffix", "", "Branch suffix to filter PRs")
 	rootCmd.Flags().StringVar(&branchRegex, "branch-regex", "", "Regex pattern to filter PRs by branch name")
-	rootCmd.Flags().StringSliceVar(&labels, "labels", nil, "Comma-separated list of labels to add to the combined PR")
+
+	// Label selection flags - singular and plural forms
+	rootCmd.Flags().StringVar(&selectLabel, "label", "", "Only include PRs with this specific label")
+	rootCmd.Flags().StringSliceVar(&selectLabels, "labels", nil, "Only include PRs with ALL these labels (comma-separated)")
+
+	// Label ignoring flags - singular and plural forms
+	rootCmd.Flags().StringVar(&ignoreLabel, "ignore-label", "", "Ignore PRs with this specific label")
+	rootCmd.Flags().StringSliceVar(&ignoreLabels, "ignore-labels", nil, "Ignore PRs with ANY of these labels (comma-separated)")
+
+	// Labels to add to the combined PR
+	rootCmd.Flags().StringSliceVar(&addLabels, "add-labels", nil, "Comma-separated list of labels to add to the combined PR")
+
+	// Other flags
 	rootCmd.Flags().StringSliceVar(&assignees, "assignees", nil, "Comma-separated list of users to assign to the combined PR")
-	rootCmd.Flags().BoolVar(&mustBeGreen, "require-green", false, "Only include PRs with passing CI checks")
+	rootCmd.Flags().BoolVar(&requireCI, "require-ci", false, "Only include PRs with passing CI checks")
 	rootCmd.Flags().BoolVar(&mustBeApproved, "require-approved", false, "Only include PRs that have been approved")
 	rootCmd.Flags().BoolVar(&autoclose, "autoclose", false, "Close source PRs when combined PR is merged")
 	rootCmd.Flags().BoolVar(&updateBranch, "update-branch", false, "Update the branch of the combined PR if possible")
-	rootCmd.Flags().StringVar(&ignoreLabel, "ignore-label", "", "Ignore PRs with this label")
-	rootCmd.Flags().StringVar(&selectLabel, "select-label", "", "Only include PRs with this label")
 	rootCmd.Flags().StringVar(&reposFile, "file", "", "File containing repository names, one per line")
-	rootCmd.Flags().IntVar(&minCombine, "min-combine", 2, "Minimum number of PRs to combine")
+	rootCmd.Flags().IntVar(&minimum, "minimum", 2, "Minimum number of PRs to combine")
+
+	// Add deprecated flags for backward compatibility
+	// rootCmd.Flags().IntVar(&minimum, "min-combine", 2, "Minimum number of PRs to combine (deprecated, use --minimum)")
+
+	// Mark deprecated flags
+	// rootCmd.Flags().MarkDeprecated("min-combine", "use --minimum instead")
 
 	return rootCmd
 }
@@ -139,7 +184,8 @@ func validateInputs(args []string) error {
 
 	// Warn if no filtering options are provided at all
 	if branchPrefix == "" && branchSuffix == "" && branchRegex == "" &&
-		ignoreLabel == "" && selectLabel == "" && !mustBeGreen && !mustBeApproved {
+		ignoreLabel == "" && selectLabel == "" && len(selectLabels) == 0 &&
+		!requireCI && !mustBeApproved {
 		Logger.Warn("No filtering options specified. This will attempt to combine ALL open pull requests.")
 	}
 
@@ -264,8 +310,8 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 		}
 
 		// Check if we have enough PRs to combine
-		if len(matchedPRs) < minCombine {
-			Logger.Debug("Not enough PRs match criteria", "repo", repo, "matched", len(matchedPRs), "required", minCombine)
+		if len(matchedPRs) < minimum {
+			Logger.Debug("Not enough PRs match criteria", "repo", repo, "matched", len(matchedPRs), "required", minimum)
 			continue
 		}
 
@@ -332,11 +378,12 @@ func branchMatchesCriteria(branch string) bool {
 // labelsMatchCriteria checks if PR labels match the label filtering criteria
 func labelsMatchCriteria(prLabels []struct{ Name string }) bool {
 	// If no label filters are specified, all PRs pass this check
-	if ignoreLabel == "" && selectLabel == "" {
+	if ignoreLabel == "" && len(ignoreLabels) == 0 &&
+		selectLabel == "" && len(selectLabels) == 0 {
 		return true
 	}
 
-	// Check for ignore label
+	// Check for ignore label (singular)
 	if ignoreLabel != "" {
 		for _, label := range prLabels {
 			if label.Name == ignoreLabel {
@@ -345,7 +392,18 @@ func labelsMatchCriteria(prLabels []struct{ Name string }) bool {
 		}
 	}
 
-	// Check for select label
+	// Check for ignore labels (plural)
+	if len(ignoreLabels) > 0 {
+		for _, ignoreL := range ignoreLabels {
+			for _, prLabel := range prLabels {
+				if prLabel.Name == ignoreL {
+					return false
+				}
+			}
+		}
+	}
+
+	// Check for select label (singular)
 	if selectLabel != "" {
 		found := false
 		for _, label := range prLabels {
@@ -356,6 +414,22 @@ func labelsMatchCriteria(prLabels []struct{ Name string }) bool {
 		}
 		if !found {
 			return false
+		}
+	}
+
+	// Check for select labels (plural)
+	if len(selectLabels) > 0 {
+		for _, requiredLabel := range selectLabels {
+			found := false
+			for _, prLabel := range prLabels {
+				if prLabel.Name == requiredLabel {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
 		}
 	}
 
