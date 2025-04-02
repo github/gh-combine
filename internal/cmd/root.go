@@ -39,7 +39,7 @@ func NewRootCmd() *cobra.Command {
 		Short: "Combine multiple pull requests into a single PR",
 		Long: `Combine multiple pull requests that match specific criteria into a single PR.
     Examples:
-      # Basic usage with a single repository
+      # Basic usage with a single repository (will default to "--branch-prefix dependabot/" and "--minimum 2")
       gh combine octocat/hello-world
     
       # Multiple repositories (comma-separated)
