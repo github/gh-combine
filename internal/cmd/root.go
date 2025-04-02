@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"regexp"
 	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/api"
@@ -132,7 +130,7 @@ func runCombine(cmd *cobra.Command, args []string) error {
 	defer spinner.Stop()
 
 	// Parse repositories from args or file
-	repos, err := parseRepositories(args)
+	repos, err := ParseRepositories(args, reposFile)
 	if err != nil {
 		return fmt.Errorf("failed to parse repositories: %w", err)
 	}
@@ -147,45 +145,6 @@ func runCombine(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-// parseRepositories parses repository names from arguments or file
-func parseRepositories(args []string) ([]string, error) {
-	var repos []string
-
-	// Parse from command line arguments
-	if len(args) > 0 {
-		// Check if repos are comma-separated
-		for _, arg := range args {
-			if strings.Contains(arg, ",") {
-				splitRepos := strings.Split(arg, ",")
-				for _, repo := range splitRepos {
-					if trimmedRepo := strings.TrimSpace(repo); trimmedRepo != "" {
-						repos = append(repos, trimmedRepo)
-					}
-				}
-			} else {
-				repos = append(repos, arg)
-			}
-		}
-	}
-
-	// Parse from file if specified
-	if reposFile != "" {
-		fileContent, err := os.ReadFile(reposFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read repositories file: %w", err)
-		}
-
-		lines := strings.Split(string(fileContent), "\n")
-		for _, line := range lines {
-			if trimmedLine := strings.TrimSpace(line); trimmedLine != "" && !strings.HasPrefix(trimmedLine, "#") {
-				repos = append(repos, trimmedLine)
-			}
-		}
-	}
-
-	return repos, nil
 }
 
 // executeCombineCommand performs the actual API calls and processing
@@ -245,7 +204,7 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 			branch := pull.Head.Ref
 
 			// Check if PR matches all filtering criteria
-			if !prMatchesCriteria(branch, pull.Labels) {
+			if !PrMatchesCriteria(branch, pull.Labels) {
 				continue
 			}
 
@@ -282,113 +241,4 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 	}
 
 	return nil
-}
-
-// prMatchesCriteria checks if a PR matches all filtering criteria
-func prMatchesCriteria(branch string, prLabels []struct{ Name string }) bool {
-	// Check branch criteria if any are specified
-	if !branchMatchesCriteria(branch) {
-		return false
-	}
-
-	// Check label criteria if any are specified
-	if !labelsMatchCriteria(prLabels) {
-		return false
-	}
-
-	return true
-}
-
-// branchMatchesCriteria checks if a branch matches the branch filtering criteria
-func branchMatchesCriteria(branch string) bool {
-	// If no branch filters are specified, all branches pass this check
-	if branchPrefix == "" && branchSuffix == "" && branchRegex == "" {
-		return true
-	}
-
-	// Apply branch prefix filter if specified
-	if branchPrefix != "" && !strings.HasPrefix(branch, branchPrefix) {
-		return false
-	}
-
-	// Apply branch suffix filter if specified
-	if branchSuffix != "" && !strings.HasSuffix(branch, branchSuffix) {
-		return false
-	}
-
-	// Apply branch regex filter if specified
-	if branchRegex != "" {
-		regex, err := regexp.Compile(branchRegex)
-		if err != nil {
-			Logger.Warn("Invalid regex pattern", "pattern", branchRegex, "error", err)
-			return false
-		}
-
-		if !regex.MatchString(branch) {
-			return false
-		}
-	}
-
-	return true
-}
-
-// labelsMatchCriteria checks if PR labels match the label filtering criteria
-func labelsMatchCriteria(prLabels []struct{ Name string }) bool {
-	// If no label filters are specified, all PRs pass this check
-	if ignoreLabel == "" && len(ignoreLabels) == 0 &&
-		selectLabel == "" && len(selectLabels) == 0 {
-		return true
-	}
-
-	// Check for ignore label (singular)
-	if ignoreLabel != "" {
-		for _, label := range prLabels {
-			if label.Name == ignoreLabel {
-				return false
-			}
-		}
-	}
-
-	// Check for ignore labels (plural)
-	if len(ignoreLabels) > 0 {
-		for _, ignoreL := range ignoreLabels {
-			for _, prLabel := range prLabels {
-				if prLabel.Name == ignoreL {
-					return false
-				}
-			}
-		}
-	}
-
-	// Check for select label (singular)
-	if selectLabel != "" {
-		found := false
-		for _, label := range prLabels {
-			if label.Name == selectLabel {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-
-	// Check for select labels (plural)
-	if len(selectLabels) > 0 {
-		for _, requiredLabel := range selectLabels {
-			found := false
-			for _, prLabel := range prLabels {
-				if prLabel.Name == requiredLabel {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return false
-			}
-		}
-	}
-
-	return true
 }
