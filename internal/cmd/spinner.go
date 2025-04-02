@@ -35,6 +35,6 @@ func (s *Spinner) Stop() {
 	s.spinner.Stop()
 }
 
-func (s *Spinner) Suffix(message string) {
-	s.spinner.Suffix = " " + message
-}
+// func (s *Spinner) Suffix(message string) {
+// 	s.spinner.Suffix = " " + message
+// }
