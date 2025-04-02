@@ -25,6 +25,16 @@ func NewSpinner(message string) *Spinner {
 	}
 }
 
+// UpdateMessage changes the text displayed next to the spinner while it's running
+func (s *Spinner) UpdateMessage(message string) {
+	if message == "" {
+		s.spinner.Suffix = ""
+		return
+	}
+
+	s.spinner.Suffix = " " + message
+}
+
 func (s *Spinner) Stop() {
 	defer func() {
 		if r := recover(); r != nil {

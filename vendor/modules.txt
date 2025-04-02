@@ -30,6 +30,9 @@ github.com/fatih/color
 github.com/henvic/httpretty
 github.com/henvic/httpretty/internal/color
 github.com/henvic/httpretty/internal/header
+# github.com/inconshreveable/mousetrap v1.1.0
+## explicit; go 1.18
+github.com/inconshreveable/mousetrap
 # github.com/kr/pretty v0.1.0
 ## explicit
 # github.com/lucasb-eyer/go-colorful v1.2.0
@@ -47,6 +50,12 @@ github.com/muesli/termenv
 # github.com/rivo/uniseg v0.4.7
 ## explicit; go 1.18
 github.com/rivo/uniseg
+# github.com/spf13/cobra v1.9.1
+## explicit; go 1.15
+github.com/spf13/cobra
+# github.com/spf13/pflag v1.0.6
+## explicit; go 1.12
+github.com/spf13/pflag
 # github.com/thlib/go-timezone-local v0.0.0-20210907160436-ef149e42d28e
 ## explicit; go 1.16
 github.com/thlib/go-timezone-local/tzlocal
