@@ -126,7 +126,7 @@ func runCombine(cmd *cobra.Command, args []string) error {
 	Logger.Debug("starting gh-combine", "version", version.String())
 
 	// Input validation
-	if err := validateInputs(args); err != nil {
+	if err := ValidateInputs(args); err != nil {
 		return err
 	}
 
@@ -168,28 +168,6 @@ func setupSignalContext() (context.Context, context.CancelFunc) {
 	}()
 
 	return ctx, cancel
-}
-
-// validateInputs checks if the provided inputs are valid
-func validateInputs(args []string) error {
-	// Check that ignore-label and select-label are not the same
-	if ignoreLabel != "" && selectLabel != "" && ignoreLabel == selectLabel {
-		return errors.New("--ignore-label and --select-label cannot have the same value")
-	}
-
-	// If no args and no file, we can't proceed
-	if len(args) == 0 && reposFile == "" {
-		return errors.New("must specify repositories or provide a file with --file")
-	}
-
-	// Warn if no filtering options are provided at all
-	if branchPrefix == "" && branchSuffix == "" && branchRegex == "" &&
-		ignoreLabel == "" && selectLabel == "" && len(selectLabels) == 0 &&
-		!requireCI && !mustBeApproved {
-		Logger.Warn("No filtering options specified. This will attempt to combine ALL open pull requests.")
-	}
-
-	return nil
 }
 
 // parseRepositories parses repository names from arguments or file
