@@ -1,0 +1,54 @@
+name: lint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      # Taken from https://github.com/cli/cli/blob/trunk/.github/workflows/lint.yml
+      - name: lint
+        run: |
+            STATUS=0
+            assert-nothing-changed() {
+              local diff
+              "$@" >/dev/null || return 1
+              if ! diff="$(git diff -U1 --color --exit-code)"; then
+                printf '\e[31mError: running `\e[1m%s\e[22m` results in modifications that you must check into version control:\e[0m\n%s\n\n' "$*" "$diff" >&2
+                git checkout -- .
+                STATUS=1
+              fi
+            }
+
+            assert-nothing-changed go fmt ./...
+            assert-nothing-changed go mod tidy
+
+            exit $STATUS
+
+      - name: deadcode
+        run: |
+          go install golang.org/x/tools/cmd/deadcode@latest
+
+          deadcode -test ./... > "deadcode.txt"
+          if [ -s "deadcode.txt" ]; then
+            echo "dead code found:"
+            cat deadcode.txt
+            exit 1
+          fi
