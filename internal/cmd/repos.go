@@ -8,7 +8,13 @@ import (
 
 // ParseRepositories parses repository names from arguments or file with support for default owner
 func ParseRepositories(args []string, reposFile string, defaultOwner string) ([]string, error) {
-	var repos []string
+	// Explicitly initialize repos as an empty slice
+	repos := []string{}
+
+	// If both args and reposFile are empty, return an empty slice
+	if len(args) == 0 && reposFile == "" {
+		return repos, nil
+	}
 
 	// Parse from command line arguments
 	if len(args) > 0 {
@@ -36,7 +42,18 @@ func ParseRepositories(args []string, reposFile string, defaultOwner string) ([]
 
 		lines := strings.Split(string(fileContent), "\n")
 		for _, line := range lines {
-			if trimmedLine := strings.TrimSpace(line); trimmedLine != "" && !strings.HasPrefix(trimmedLine, "#") {
+			// Trim whitespace and ignore comments
+			trimmedLine := strings.TrimSpace(line)
+			if trimmedLine == "" || strings.HasPrefix(trimmedLine, "#") {
+				continue
+			}
+
+			// Remove inline comments
+			if idx := strings.Index(trimmedLine, "#"); idx != -1 {
+				trimmedLine = strings.TrimSpace(trimmedLine[:idx])
+			}
+
+			if trimmedLine != "" {
 				repos = append(repos, applyDefaultOwner(trimmedLine, defaultOwner))
 			}
 		}
