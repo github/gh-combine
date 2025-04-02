@@ -35,7 +35,7 @@ var (
 // NewRootCmd creates the root command for the gh-combine CLI
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "combine [repo1,repo2,...]",
+		Use:   "combine owner/repo",
 		Short: "Combine multiple pull requests into a single PR",
 		Long: `Combine multiple pull requests that match specific criteria into a single PR.
     Examples:
