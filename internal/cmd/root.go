@@ -5,10 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/signal"
 	"regexp"
 	"strings"
-	"syscall"
 
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
@@ -120,7 +118,7 @@ func Run() error {
 
 // runCombine is the main execution function for the combine command
 func runCombine(cmd *cobra.Command, args []string) error {
-	ctx, cancel := setupSignalContext()
+	ctx, cancel := SetupSignalContext()
 	defer cancel()
 
 	Logger.Debug("starting gh-combine", "version", version.String())
@@ -149,25 +147,6 @@ func runCombine(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-// setupSignalContext creates a context that's cancelled on SIGINT or SIGTERM
-func setupSignalContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		select {
-		case <-signalChan:
-			Logger.Debug("Received interrupt signal, cancelling operations...")
-			cancel()
-		case <-ctx.Done():
-		}
-		signal.Stop(signalChan)
-	}()
-
-	return ctx, cancel
 }
 
 // parseRepositories parses repository names from arguments or file
