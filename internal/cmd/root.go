@@ -86,7 +86,7 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	// Add flags
-	rootCmd.Flags().StringVar(&branchPrefix, "branch-prefix", "", "Branch prefix to filter PRs")
+	rootCmd.Flags().StringVar(&branchPrefix, "branch-prefix", "dependabot/", "Branch prefix to filter PRs")
 	rootCmd.Flags().StringVar(&branchSuffix, "branch-suffix", "", "Branch suffix to filter PRs")
 	rootCmd.Flags().StringVar(&branchRegex, "branch-regex", "", "Regex pattern to filter PRs by branch name")
 
