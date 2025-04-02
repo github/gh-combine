@@ -37,6 +37,7 @@ func Run() error {
 	}()
 
 	// for initial testing, just sleep for 1 second and stop the spinner
+	spinner.Suffix("running")
 	time.Sleep(1 * time.Second)
 	spinner.Stop()
 
