@@ -20,7 +20,13 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 	// Define the combined branch name
 	workingBranchName := combineBranchName + workingBranchSuffix
 
-	baseBranchSHA, err := getBranchSHA(ctx, restClient, owner, repo, baseBranch)
+	// Get the default branch of the repository
+	repoDefaultBranch, err := getDefaultBranch(ctx, restClient, owner, repo)
+	if err != nil {
+		return fmt.Errorf("failed to get default branch: %w", err)
+	}
+
+	baseBranchSHA, err := getBranchSHA(ctx, restClient, owner, repo, repoDefaultBranch)
 	if err != nil {
 		return fmt.Errorf("failed to get SHA of main branch: %w", err)
 	}
@@ -78,12 +84,25 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 	// Create the combined PR
 	prBody := generatePRBody(combinedPRs, mergeFailedPRs)
 	prTitle := "Combined PRs"
-	err = createPullRequest(ctx, restClient, owner, repo, prTitle, combineBranchName, baseBranch, prBody)
+	err = createPullRequest(ctx, restClient, owner, repo, prTitle, combineBranchName, repoDefaultBranch, prBody)
 	if err != nil {
 		return fmt.Errorf("failed to create combined PR: %w", err)
 	}
 
 	return nil
+}
+
+// Find the default branch of a repository
+func getDefaultBranch(ctx context.Context, client *api.RESTClient, owner, repo string) (string, error) {
+	var repoInfo struct {
+		DefaultBranch string `json:"default_branch"`
+	}
+	endpoint := fmt.Sprintf("repos/%s/%s", owner, repo)
+	err := client.Get(endpoint, &repoInfo)
+	if err != nil {
+		return "", fmt.Errorf("failed to get default branch: %w", err)
+	}
+	return repoInfo.DefaultBranch, nil
 }
 
 // Get the SHA of a given branch
