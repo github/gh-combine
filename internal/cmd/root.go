@@ -163,6 +163,7 @@ func runCombine(cmd *cobra.Command, args []string) error {
 func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string) error {
 	// Create GitHub API client
 	restClient, err := api.DefaultRESTClient()
+	graphQlClient, err := api.DefaultGraphQLClient()
 	if err != nil {
 		return fmt.Errorf("failed to create REST client: %w", err)
 	}
@@ -180,7 +181,7 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 		Logger.Debug("Processing repository", "repo", repo)
 
 		// Process the repository
-		if err := processRepository(ctx, restClient, spinner, repo); err != nil {
+		if err := processRepository(ctx, restClient, graphQlClient, spinner, repo); err != nil {
 			if ctx.Err() != nil {
 				// If the context was cancelled, stop processing
 				return ctx.Err()
@@ -195,7 +196,7 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 }
 
 // processRepository handles a single repository's PRs
-func processRepository(ctx context.Context, client *api.RESTClient, spinner *Spinner, repo string) error {
+func processRepository(ctx context.Context, client *api.RESTClient, graphQlClient *api.GraphQLClient, spinner *Spinner, repo string) error {
 	// Parse owner and repo name
 	parts := strings.Split(repo, "/")
 	if len(parts) != 2 {
@@ -259,7 +260,17 @@ func processRepository(ctx context.Context, client *api.RESTClient, spinner *Spi
 			continue
 		}
 
-		// TODO: Implement CI/approval status checking
+		// Check if PR meets additional requirements (CI, approval)
+		meetsRequirements, err := PrMeetsRequirements(ctx, graphQlClient, owner, repoName, pull.Number)
+		if err != nil {
+			Logger.Warn("Failed to check PR requirements", "repo", repo, "pr", pull.Number, "error", err)
+			continue
+		}
+
+		if !meetsRequirements {
+			// Skip this PR as it doesn't meet CI/approval requirements
+			continue
+		}
 
 		matchedPRs = append(matchedPRs, struct {
 			Number  int
