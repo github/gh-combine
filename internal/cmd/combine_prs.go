@@ -18,8 +18,7 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 	BaseSHA string
 }) error {
 	// Define the combined branch name
-	combineBranchName := "combined-prs"
-	workingBranchName := combineBranchName + "-working"
+	workingBranchName := combineBranchName + workingBranchSuffix
 
 	baseBranchSHA, err := getBranchSHA(ctx, restClient, owner, repo, baseBranch)
 	if err != nil {
