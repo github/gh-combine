@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/api"
 )
@@ -61,7 +62,14 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 	for _, pr := range matchedPRs {
 		err := mergeBranch(ctx, restClient, owner, repo, workingBranchName, pr.Branch)
 		if err != nil {
-			Logger.Warn("Failed to merge branch", "branch", pr.Branch, "error", err)
+			// Check if the error is a 409 merge conflict
+			if isMergeConflictError(err) {
+				// Log merge conflicts at DEBUG level
+				Logger.Debug("Merge conflict", "branch", pr.Branch, "error", err)
+			} else {
+				// Log other errors at WARN level
+				Logger.Warn("Failed to merge branch", "branch", pr.Branch, "error", err)
+			}
 			mergeFailedPRs = append(mergeFailedPRs, fmt.Sprintf("#%d", pr.Number))
 		} else {
 			Logger.Debug("Merged branch", "branch", pr.Branch)
@@ -90,6 +98,12 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 	}
 
 	return nil
+}
+
+// isMergeConflictError checks if the error is a 409 Merge Conflict
+func isMergeConflictError(err error) bool {
+	// Check if the error message contains "HTTP 409: Merge conflict"
+	return err != nil && strings.Contains(err.Error(), "HTTP 409: Merge conflict")
 }
 
 // Find the default branch of a repository
