@@ -8,13 +8,13 @@ require github.com/briandowns/spinner v1.23.2
 
 require (
 	github.com/cli/go-gh/v2 v2.12.0
+	github.com/cli/shurcooL-graphql v0.0.4
 	github.com/spf13/cobra v1.9.1
 )
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/cli/safeexec v1.0.0 // indirect
-	github.com/cli/shurcooL-graphql v0.0.4 // indirect
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/henvic/httpretty v0.0.6 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
