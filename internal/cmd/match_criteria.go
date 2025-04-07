@@ -210,78 +210,6 @@ func GetPRStatusInfo(ctx context.Context, graphQlClient *api.GraphQLClient, owne
 	return response, nil
 }
 
-// HasPassingCI checks if a pull request has passing CI
-func HasPassingCI(ctx context.Context, graphQlClient *api.GraphQLClient, owner, repo string, prNumber int) (bool, error) {
-	// Check for context cancellation
-	select {
-	case <-ctx.Done():
-		return false, ctx.Err()
-	default:
-		// Continue processing
-	}
-
-	// Get PR status info using GraphQL
-	response, err := GetPRStatusInfo(ctx, graphQlClient, owner, repo, prNumber)
-	if err != nil {
-		return false, err
-	}
-
-	// Get the commit status check info
-	commits := response.Data.Repository.PullRequest.Commits.Nodes
-	if len(commits) == 0 {
-		Logger.Debug("No commits found for PR", "repo", fmt.Sprintf("%s/%s", owner, repo), "pr", prNumber)
-		return false, nil
-	}
-
-	// Get status check info
-	statusCheckRollup := commits[0].Commit.StatusCheckRollup
-	if statusCheckRollup == nil {
-		Logger.Debug("No status checks found for PR", "repo", fmt.Sprintf("%s/%s", owner, repo), "pr", prNumber)
-		return true, nil // If no checks defined, consider it passing
-	}
-
-	// Check if status is SUCCESS
-	if statusCheckRollup.State != "SUCCESS" {
-		Logger.Debug("PR failed CI check", "repo", fmt.Sprintf("%s/%s", owner, repo), "pr", prNumber, "status", statusCheckRollup.State)
-		return false, nil
-	}
-
-	return true, nil
-}
-
-// HasApproval checks if a pull request has been approved
-func HasApproval(ctx context.Context, graphQlClient *api.GraphQLClient, owner, repo string, prNumber int) (bool, error) {
-	// Check for context cancellation
-	select {
-	case <-ctx.Done():
-		return false, ctx.Err()
-	default:
-		// Continue processing
-	}
-
-	// Get PR status info using GraphQL
-	response, err := GetPRStatusInfo(ctx, graphQlClient, owner, repo, prNumber)
-	if err != nil {
-		return false, err
-	}
-
-	reviewDecision := response.Data.Repository.PullRequest.ReviewDecision
-	Logger.Debug("PR review decision", "repo", fmt.Sprintf("%s/%s", owner, repo), "pr", prNumber, "decision", reviewDecision)
-
-	// Check the review decision
-	switch reviewDecision {
-	case "APPROVED":
-		return true, nil
-	case "": // When no reviews are required
-		Logger.Debug("PR has no required reviewers", "repo", fmt.Sprintf("%s/%s", owner, repo), "pr", prNumber)
-		return true, nil // If no reviews required, consider it approved
-	default:
-		// Any other decision (REVIEW_REQUIRED, CHANGES_REQUESTED, etc.)
-		Logger.Debug("PR not approved", "repo", fmt.Sprintf("%s/%s", owner, repo), "pr", prNumber, "decision", reviewDecision)
-		return false, nil
-	}
-}
-
 // PrMeetsRequirements checks if a PR meets additional requirements beyond basic criteria
 func PrMeetsRequirements(ctx context.Context, graphQlClient *api.GraphQLClient, owner, repo string, prNumber int) (bool, error) {
 	// If no additional requirements are specified, the PR meets requirements
@@ -289,20 +217,15 @@ func PrMeetsRequirements(ctx context.Context, graphQlClient *api.GraphQLClient, 
 		return true, nil
 	}
 
-	// Check for context cancellation
-	select {
-	case <-ctx.Done():
-		return false, ctx.Err()
-	default:
-		// Continue processing
+	// Fetch PR status info once
+	response, err := GetPRStatusInfo(ctx, graphQlClient, owner, repo, prNumber)
+	if err != nil {
+		return false, err
 	}
 
 	// Check CI status if required
 	if requireCI {
-		passing, err := HasPassingCI(ctx, graphQlClient, owner, repo, prNumber)
-		if err != nil {
-			return false, err
-		}
+		passing := isCIPassing(response)
 		if !passing {
 			return false, nil
 		}
@@ -310,14 +233,50 @@ func PrMeetsRequirements(ctx context.Context, graphQlClient *api.GraphQLClient, 
 
 	// Check approval status if required
 	if mustBeApproved {
-		approved, err := HasApproval(ctx, graphQlClient, owner, repo, prNumber)
-		if err != nil {
-			return false, err
-		}
+		approved := isPRApproved(response)
 		if !approved {
 			return false, nil
 		}
 	}
 
 	return true, nil
+}
+
+// isCIPassing checks if the CI status is passing based on the response
+func isCIPassing(response *prStatusResponse) bool {
+	commits := response.Data.Repository.PullRequest.Commits.Nodes
+	if len(commits) == 0 {
+		Logger.Debug("No commits found for PR")
+		return false
+	}
+
+	statusCheckRollup := commits[0].Commit.StatusCheckRollup
+	if statusCheckRollup == nil {
+		Logger.Debug("No status checks found for PR")
+		return true // If no checks defined, consider it passing
+	}
+
+	if statusCheckRollup.State != "SUCCESS" {
+		Logger.Debug("PR failed CI check", "status", statusCheckRollup.State)
+		return false
+	}
+
+	return true
+}
+
+// isPRApproved checks if the PR is approved based on the response
+func isPRApproved(response *prStatusResponse) bool {
+	reviewDecision := response.Data.Repository.PullRequest.ReviewDecision
+	Logger.Debug("PR review decision", "decision", reviewDecision)
+
+	switch reviewDecision {
+	case "APPROVED":
+		return true
+	case "": // When no reviews are required
+		Logger.Debug("PR has no required reviewers")
+		return true // If no reviews required, consider it approved
+	default:
+		Logger.Debug("PR not approved", "decision", reviewDecision)
+		return false
+	}
 }
