@@ -14,24 +14,23 @@ import (
 )
 
 var (
-	branchPrefix            string
-	branchSuffix            string
-	branchRegex             string
-	selectLabel             string
-	selectLabels            []string
-	addLabels               []string
-	addAssignees            []string
-	requireCI               bool
-	mustBeApproved          bool
-	autoclose               bool
-	updateBranch            bool
-	ignoreLabel             string
-	ignoreLabels            []string
-	reposFile               string
-	minimum                 int
-	defaultOwner            string
-	doNotCombineFromScratch bool
-	baseBranch              string
+	branchPrefix   string
+	branchSuffix   string
+	branchRegex    string
+	selectLabel    string
+	selectLabels   []string
+	addLabels      []string
+	addAssignees   []string
+	requireCI      bool
+	mustBeApproved bool
+	autoclose      bool
+	updateBranch   bool
+	ignoreLabel    string
+	ignoreLabels   []string
+	reposFile      string
+	minimum        int
+	defaultOwner   string
+	baseBranch     string
 )
 
 // NewRootCmd creates the root command for the gh-combine CLI
@@ -84,7 +83,6 @@ func NewRootCmd() *cobra.Command {
       # Additional options
       gh combine octocat/hello-world --autoclose                    # Close source PRs when combined PR is merged
 	  gh combine octocat/hello-world --base-branch main             # Use a different base branch for the combined PR
-	  gh combine octocat/hello-world --do-not-combine-from-scratch  # Do not combine the PRs from scratch
       gh combine octocat/hello-world --update-branch                # Update the branch of the combined PR`,
 		RunE: runCombine,
 	}
@@ -111,7 +109,6 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.Flags().BoolVar(&mustBeApproved, "require-approved", false, "Only include PRs that have been approved")
 	rootCmd.Flags().BoolVar(&autoclose, "autoclose", false, "Close source PRs when combined PR is merged")
 	rootCmd.Flags().BoolVar(&updateBranch, "update-branch", false, "Update the branch of the combined PR if possible")
-	rootCmd.Flags().BoolVar(&doNotCombineFromScratch, "do-not-combine-from-scratch", false, "Do not combine the PRs from scratch (clean)")
 	rootCmd.Flags().StringVar(&baseBranch, "base-branch", "main", "Base branch for the combined PR (default: main)")
 	rootCmd.Flags().StringVar(&reposFile, "file", "", "File containing repository names, one per line")
 	rootCmd.Flags().IntVar(&minimum, "minimum", 2, "Minimum number of PRs to combine")
