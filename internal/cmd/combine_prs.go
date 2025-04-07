@@ -79,7 +79,6 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 	// Create the combined PR
 	prBody := generatePRBody(combinedPRs, mergeFailedPRs)
 	prTitle := "Combined PRs"
-	baseBranch := matchedPRs[0].Base // Use the base branch of the first PR
 	err = createPullRequest(ctx, restClient, owner, repo, prTitle, combineBranchName, baseBranch, prBody)
 	if err != nil {
 		return fmt.Errorf("failed to create combined PR: %w", err)
