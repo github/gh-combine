@@ -64,7 +64,7 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 			Logger.Warn("Failed to merge branch", "branch", pr.Branch, "error", err)
 			mergeFailedPRs = append(mergeFailedPRs, fmt.Sprintf("#%d", pr.Number))
 		} else {
-			Logger.Info("Merged branch", "branch", pr.Branch)
+			Logger.Debug("Merged branch", "branch", pr.Branch)
 			combinedPRs = append(combinedPRs, fmt.Sprintf("#%d - %s", pr.Number, pr.Title))
 		}
 	}
