@@ -172,9 +172,13 @@ func runCombine(cmd *cobra.Command, args []string) error {
 func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string) error {
 	// Create GitHub API client
 	restClient, err := api.DefaultRESTClient()
+	if err != nil {
+		return fmt.Errorf("failed to get the default REST client: %w", err)
+	}
+
 	graphQlClient, err := api.DefaultGraphQLClient()
 	if err != nil {
-		return fmt.Errorf("failed to create REST client: %w", err)
+		return fmt.Errorf("failed to create the default GraphQL Client : %w", err)
 	}
 
 	for _, repo := range repos {
@@ -190,7 +194,7 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 		Logger.Debug("Processing repository", "repo", repo)
 
 		// Process the repository
-		if err := processRepository(ctx, restClient, graphQlClient, spinner, repo); err != nil {
+		if err := processRepository(ctx, restClient, graphQlClient, repo); err != nil {
 			if ctx.Err() != nil {
 				// If the context was cancelled, stop processing
 				return ctx.Err()
@@ -205,7 +209,7 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 }
 
 // processRepository handles a single repository's PRs
-func processRepository(ctx context.Context, client *api.RESTClient, graphQlClient *api.GraphQLClient, spinner *Spinner, repo string) error {
+func processRepository(ctx context.Context, client *api.RESTClient, graphQlClient *api.GraphQLClient, repo string) error {
 	// Parse owner and repo name
 	parts := strings.Split(repo, "/")
 	if len(parts) != 2 {
