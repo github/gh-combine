@@ -40,54 +40,54 @@ func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "combine owner/repo",
 		Short: "Combine multiple pull requests into a single PR",
-		Long: `Combine multiple pull requests that match specific criteria into a single PR.
-	Examples:
-		# Basic usage with a single repository (will default to "--branch-prefix dependabot/" and "--minimum 2")
-		gh combine octocat/hello-world
+		Long:  `Combine multiple pull requests that match specific criteria into a single PR.`,
+		Example: `
+  # Basic usage with a single repository (will default to "--branch-prefix dependabot/" and "--minimum 2")
+  gh combine octocat/hello-world
 
-		# Multiple repositories (comma-separated)
-		gh combine octocat/repo1,octocat/repo2
+  # Multiple repositories (comma-separated)
+  gh combine octocat/repo1,octocat/repo2
 
-		# Multiple repositories (no commas)
-		gh combine octocat/repo1 octocat/repo2
+  # Multiple repositories (no commas)
+  gh combine octocat/repo1 octocat/repo2
 
-		# Using default owner for repositories
-		gh combine --owner octocat repo1 repo2
+  # Using default owner for repositories
+  gh combine --owner octocat repo1 repo2
 
-		# Using default owner for only some repositories
-		gh combine --owner octocat repo1 octocat/repo2
+  # Using default owner for only some repositories
+  gh combine --owner octocat repo1 octocat/repo2
 
-		# Using a file with repository names (one per line: owner/repo format)
-		gh combine --file repos.txt
+  # Using a file with repository names (one per line: owner/repo format)
+  gh combine --file repos.txt
 
-		# Filter PRs by branch name
-		gh combine octocat/hello-world --branch-prefix dependabot/ # Only include PRs with the standard dependabot branch prefix
-		gh combine octocat/hello-world --branch-suffix -update
-		gh combine octocat/hello-world --branch-regex "dependabot/.*"
+  # Filter PRs by branch name
+  gh combine octocat/hello-world --branch-prefix dependabot/ # Only include PRs with the standard dependabot branch prefix
+  gh combine octocat/hello-world --branch-suffix -update
+  gh combine octocat/hello-world --branch-regex "dependabot/.*"
 
-		# Filter PRs by labels
-		gh combine octocat/hello-world --label dependencies        # PRs must have this single label
-		gh combine octocat/hello-world --labels security,dependencies  # PRs must have ALL these labels
+  # Filter PRs by labels
+  gh combine octocat/hello-world --label dependencies        # PRs must have this single label
+  gh combine octocat/hello-world --labels security,dependencies  # PRs must have ALL these labels
 
-		# Exclude PRs by labels
-		gh combine octocat/hello-world --ignore-label wip          # Ignore PRs with this label
-		gh combine octocat/hello-world --ignore-labels wip,draft   # Ignore PRs with ANY of these labels
+  # Exclude PRs by labels
+  gh combine octocat/hello-world --ignore-label wip          # Ignore PRs with this label
+  gh combine octocat/hello-world --ignore-labels wip,draft   # Ignore PRs with ANY of these labels
 
-		# Set requirements for PRs to be combined
-		gh combine octocat/hello-world --require-ci                # Only include PRs with passing CI
-		gh combine octocat/hello-world --require-approved          # Only include approved PRs
-		gh combine octocat/hello-world --minimum 3                 # Need at least 3 matching PRs
+  # Set requirements for PRs to be combined
+  gh combine octocat/hello-world --require-ci                # Only include PRs with passing CI
+  gh combine octocat/hello-world --require-approved          # Only include approved PRs
+  gh combine octocat/hello-world --minimum 3                 # Need at least 3 matching PRs
 
-		# Add metadata to combined PR
-		gh combine octocat/hello-world --add-labels security,dependencies   # Add these labels to the new PR
-		gh combine octocat/hello-world --add-assignees octocat,hubot        # Assign users to the new PR
+  # Add metadata to combined PR
+  gh combine octocat/hello-world --add-labels security,dependencies   # Add these labels to the new PR
+  gh combine octocat/hello-world --add-assignees octocat,hubot        # Assign users to the new PR
 
-		# Additional options
-		gh combine octocat/hello-world --autoclose                         # Close source PRs when combined PR is merged
-		gh combine octocat/hello-world --base-branch main                  # Use a different base branch for the combined PR
-		gh combine octocat/hello-world --combine-branch-name combined-prs  # Use a different name for the combined PR branch
-		gh combine octocat/hello-world --working-branch-suffix -working    # Use a different suffix for the working branch
-		gh combine octocat/hello-world --update-branch                     # Update the branch of the combined PR`,
+  # Additional options
+  gh combine octocat/hello-world --autoclose                         # Close source PRs when combined PR is merged
+  gh combine octocat/hello-world --base-branch main                  # Use a different base branch for the combined PR
+  gh combine octocat/hello-world --combine-branch-name combined-prs  # Use a different name for the combined PR branch
+  gh combine octocat/hello-world --working-branch-suffix -working    # Use a different suffix for the working branch
+  gh combine octocat/hello-world --update-branch                     # Update the branch of the combined PR`,
 		RunE: runCombine,
 	}
 
