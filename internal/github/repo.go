@@ -1,5 +1,10 @@
 package github
 
+import (
+	"fmt"
+	"strings"
+)
+
 type Repo struct {
 	Owner string
 	Repo  string
