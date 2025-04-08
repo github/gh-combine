@@ -7,6 +7,12 @@ A gh cli extension to automatically combine multiple pull requests into one.
 [![test](https://github.com/github/gh-combine/actions/workflows/test.yml/badge.svg)](https://github.com/github/gh-combine/actions/workflows/test.yml)
 [![release](https://github.com/github/gh-combine/actions/workflows/release.yml/badge.svg)](https://github.com/github/gh-combine/actions/workflows/release.yml)
 
+## About ⭐
+
+This project is a gh cli extension that is used to combine multiple pull requests into one. It is inspired by the [github/combine-prs](https://github.com/github/combine-prs) Action but with a focus on the gh cli.
+
+The primary use case for this extension is to combine multiple pull requests from dependabot into one. Even though dependabot supports [grouped version updates](https://github.blog/changelog/2023-06-30-grouped-version-updates-for-dependabot-public-beta/), these groups are limited by their type. For example, you cannot have dependabot combine a group of Ruby and JavaScript updates into one pull request. They are treated as separate groups. This extension solves that problem by bundling those updates into one pull request.
+
 ## Installation 💻
 
 Install this gh cli extension by running the following command:
@@ -25,8 +31,82 @@ gh ext upgrade combine
 
 ## Usage 🚀
 
+### Basic
+
+Basic usage of the `combine` command to combine multiple dependent pull requests into one for a given repository:
+
 ```bash
-gh combine TODO
+gh combine owner/repo
 ```
 
-Run `gh combine --help` for more information.
+> By default, this command runs with the `--branch-prefix dependabot/` flag set. All branches in the `owner/repo` repository that start with `dependabot/` will be combined.
+
+### With Passing CI
+
+Combine multiple pull requests together but only if their CI checks are passing:
+
+```bash
+gh combine owner/repo --require-ci
+```
+
+### With Passing CI and Approvals
+
+```bash
+gh combine owner/repo --require-ci --require-approved
+```
+
+### Combine Pull Requests from Multiple Repositories
+
+```bash
+gh combine owner/repo1 owner/repo2
+
+# alternatively separate with a comma
+gh combine owner/repo1,owner/repo2
+
+# or use the --owner flag if all the repos are owned by the same owner
+gh combine --owner owner repo1 repo2 repo3
+```
+
+### Use a File to Specify Repositories
+
+```bash
+gh combine --file repos.txt
+```
+
+Where `repos.txt` is a file with a list of repositories to combine (one per line):
+
+```txt
+owner/repo1
+owner/repo2
+owner/repo3
+```
+
+### Require a Minimum Number of PRs to Combine
+
+By using the `--minimum` flag you can require a minimum number of pull requests that must be combined for a new PR to be opened. If less than the minimum number of pull requests are combined, the command will exit without opening a new PR.
+
+```bash
+gh combine owner/repo --minimum 3
+```
+
+### Only Combine Pull Requests that match a given Label
+
+```bash
+gh combine owner/repo --label dependencies
+```
+
+You can also require a set of multiple labels
+
+```bash
+gh combine owner/repo --labels security,dependencies
+```
+
+### Running with Debug Logging
+
+```bash
+LOG_LEVEL=DEBUG gh combine owner/repo
+```
+
+---
+
+Run `gh combine --help` for more information and full command/options usage.
