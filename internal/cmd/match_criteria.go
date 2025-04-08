@@ -119,6 +119,7 @@ func labelsMatchCriteria(prLabels []struct{ Name string }) bool {
 	return true
 }
 
+// @grant: this should be moved to the github package
 // GraphQL response structure for PR status info
 type prStatusResponse struct {
 	Data struct {
@@ -142,6 +143,7 @@ type prStatusResponse struct {
 	} `json:"errors,omitempty"`
 }
 
+// @grant: this should be moved to the github package
 // GetPRStatusInfo fetches both CI status and approval status using GitHub's GraphQL API
 func GetPRStatusInfo(ctx context.Context, graphQlClient *api.GraphQLClient, owner, repo string, prNumber int) (*prStatusResponse, error) {
 	// Check for context cancellation

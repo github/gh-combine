@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"log/slog"
 	"os"
 	"strings"
@@ -16,6 +17,68 @@ func setupMockLogger() (*bytes.Buffer, func()) {
 
 	return &buf, func() {
 		Logger = origLogger
+	}
+}
+
+// @grant: this is a better pattern to write tests.
+// In a nutshell, you make each function as self-contained as possible, create
+// and iterate over a list of test cases and ensure the expected output is
+// received.
+func TestValidateLabels(t *testing.T) {
+	tests := []struct {
+		selectLabel  string
+		selectLabels []string
+		ignoreLabel  string
+		ignoreLabels []string
+		want         error
+	}{
+		{
+			// empty labels
+			want: nil,
+		},
+
+		{
+			selectLabel: "enhancement",
+			ignoreLabel: "bug",
+			want:        nil,
+		},
+
+		{
+			selectLabel: "enhancement",
+			ignoreLabel: "enhancement",
+			want:        errLabelConflict,
+		},
+
+		{
+			selectLabel:  "enhancement",
+			ignoreLabels: []string{"bug", "enhancement"},
+			want:         errIgnoreLabelsConflict,
+		},
+
+		{
+			selectLabels: []string{"bug", "enhancement"},
+			ignoreLabel:  "enhancement",
+			want:         errLabelsConflict,
+		},
+
+		{
+			selectLabels: []string{"bug", "enhancement"},
+			ignoreLabels: []string{"request", "bug"},
+			want:         errIgnoreLabelsConflict,
+		},
+
+		{
+			selectLabels: []string{"bug", "enhancement"},
+			ignoreLabels: []string{"request", "docs"},
+			want:         nil,
+		},
+	}
+
+	for _, test := range tests {
+		got := ValidateLabels(test.selectLabel, test.selectLabels, test.ignoreLabel, test.ignoreLabels)
+		if !errors.Is(got, test.want) {
+			t.Fatalf("want %v, got %v", test.want, got)
+		}
 	}
 }
 

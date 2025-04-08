@@ -1,3 +1,4 @@
+// @grant: this whole code should be moved to the github package.
 package cmd
 
 import (
