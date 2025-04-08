@@ -1,4 +1,4 @@
-Package github
+package github
 
 
 type Repo struct {
