@@ -146,6 +146,9 @@ func generatePRBody(combinedPRs, mergeFailedPRs []string) string {
 			body += "- " + pr + "\n"
 		}
 	}
+
+	body += "\n> Generated with [gh-combine](https://github.com/github/gh-combine)"
+
 	return body
 }
 
