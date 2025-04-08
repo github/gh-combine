@@ -4,12 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
-
-	"github.com/cli/go-gh/v2/pkg/api"
+	"slices"
 
 	"github.com/spf13/cobra"
 
+	"github.com/github/gh-combine/internal/github"
 	"github.com/github/gh-combine/internal/version"
 )
 
@@ -170,15 +169,9 @@ func runCombine(cmd *cobra.Command, args []string) error {
 
 // executeCombineCommand performs the actual API calls and processing
 func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string) error {
-	// Create GitHub API client
-	restClient, err := api.DefaultRESTClient()
+	client, err := github.NewClient()
 	if err != nil {
-		return fmt.Errorf("failed to get the default REST client: %w", err)
-	}
-
-	graphQlClient, err := api.DefaultGraphQLClient()
-	if err != nil {
-		return fmt.Errorf("failed to create the default GraphQL Client : %w", err)
+		return fmt.Errorf("failed to create GitHub client: %w", err)
 	}
 
 	for _, repo := range repos {
@@ -194,7 +187,7 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 		Logger.Debug("Processing repository", "repo", repo)
 
 		// Process the repository
-		if err := processRepository(ctx, restClient, graphQlClient, repo); err != nil {
+		if err := processRepository(ctx, client, graphQlClient, repo); err != nil {
 			if ctx.Err() != nil {
 				// If the context was cancelled, stop processing
 				return ctx.Err()
@@ -208,44 +201,10 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 	return nil
 }
 
-// processRepository handles a single repository's PRs
-func processRepository(ctx context.Context, client *api.RESTClient, graphQlClient *api.GraphQLClient, repo string) error {
-	// Parse owner and repo name
-	parts := strings.Split(repo, "/")
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid repository format: %s", repo)
-	}
-
-	owner := parts[0]
-	repoName := parts[1]
-
-	// Check for cancellation
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-		// Continue processing
-	}
-
-	// Get open PRs for the repository
-	var pulls []struct {
-		Number int
-		Title  string
-		Head   struct {
-			Ref string
-		}
-		Base struct {
-			Ref string
-			SHA string
-		}
-		Labels []struct {
-			Name string
-		}
-	}
-
-	endpoint := fmt.Sprintf("repos/%s/%s/pulls?state=open", owner, repoName)
-	if err := client.Get(endpoint, &pulls); err != nil {
-		return err
+func processRepository(ctx context.Context, client github.Client, repo string) error {
+	openPRs, err := client.GetOpenPRs(ctx, repo)
+	if err != nil {
+		return fmt.Errorf("failed to get open PRs: %w", err)
 	}
 
 	// Check for cancellation again
@@ -256,21 +215,11 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 		// Continue processing
 	}
 
-	// Filter PRs based on criteria
-	var matchedPRs []struct {
-		Number  int
-		Title   string
-		Branch  string
-		Base    string
-		BaseSHA string
-	}
-
-	for _, pull := range pulls {
-		branch := pull.Head.Ref
-
+	// @grant: filtering with DeleteFunc is _nice_.
+	filteredPRs := slices.DeleteFunc(openPRs, func(pr github.PR) bool {
 		// Check if PR matches all filtering criteria
-		if !PrMatchesCriteria(branch, pull.Labels) {
-			continue
+		if !PrMatchesCriteria(branch, pr.Labels) {
+			return true
 		}
 
 		// Check if PR meets additional requirements (CI, approval)
@@ -284,31 +233,15 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 			// Skip this PR as it doesn't meet CI/approval requirements
 			continue
 		}
+	})
 
-		matchedPRs = append(matchedPRs, struct {
-			Number  int
-			Title   string
-			Branch  string
-			Base    string
-			BaseSHA string
-		}{
-			Number:  pull.Number,
-			Title:   pull.Title,
-			Branch:  branch,
-			Base:    pull.Base.Ref,
-			BaseSHA: pull.Base.SHA,
-		})
-	}
-
-	// Check if we have enough PRs to combine
 	if len(matchedPRs) < minimum {
+		// @grant: shouldn't this be an error?
 		Logger.Debug("Not enough PRs match criteria", "repo", repo, "matched", len(matchedPRs), "required", minimum)
 		return nil
 	}
 
 	Logger.Debug("Matched PRs", "repo", repo, "count", len(matchedPRs))
-
-	// If we get here, we have enough PRs to combine
 
 	// Combine the PRs
 	err := CombinePRs(ctx, graphQlClient, client, owner, repoName, matchedPRs)
