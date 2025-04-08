@@ -1,6 +1,5 @@
 package github
 
-
 type Repo struct {
 	Owner string
 	Repo  string
