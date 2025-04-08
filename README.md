@@ -101,6 +101,12 @@ You can also require a set of multiple labels
 gh combine owner/repo --labels security,dependencies
 ```
 
+### Running with Debug Logging
+
+```bash
+LOG_LEVEL=DEBUG gh combine owner/repo
+```
+
 ---
 
 Run `gh combine --help` for more information and full command/options usage.
