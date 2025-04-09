@@ -50,7 +50,7 @@ func ValidateInputs(args []string) error {
 	if branchPrefix == "" && branchSuffix == "" && branchRegex == "" &&
 		ignoreLabel == "" && len(ignoreLabels) == 0 && selectLabel == "" && len(selectLabels) == 0 &&
 		!requireCI && !mustBeApproved {
-		Logger.Warn("No filtering options specified. This will attempt to combine ALL open pull requests.")
+		Logger.Warn("No filtering options specified. This will attempt to combine ALL open pull requests. Use --label, --labels, --ignore-label, --ignore-labels, --branch-prefix, --branch-suffix, --branch-regex, --dependabot, etc to filter.")
 	}
 
 	return nil

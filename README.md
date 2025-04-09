@@ -39,7 +39,15 @@ Basic usage of the `combine` command to combine multiple dependent pull requests
 gh combine owner/repo
 ```
 
-> By default, this command runs with the `--branch-prefix dependabot/` flag set. All branches in the `owner/repo` repository that start with `dependabot/` will be combined.
+> By default, this command will attempt to combine all open pull requests in the repository. You should use generally use some form of filtering to limit the number of pull requests that are combined. See the examples below for more information.
+
+### Basic with Dependabot
+
+Combine all open pull requests in a repository that are created by dependabot:
+
+```bash
+gh combine owner/repo --dependabot
+```
 
 ### With Passing CI
 
@@ -99,6 +107,39 @@ You can also require a set of multiple labels
 
 ```bash
 gh combine owner/repo --labels security,dependencies
+```
+
+### Only Combine Pull Requests that match a given Regex
+
+```bash
+gh combine owner/repo --branch-regex "dependabot/.*"
+```
+
+### Only Combine Pull Requests that match a branch prefix
+
+```bash
+gh combine owner/repo --branch-prefix "dependabot/"
+```
+
+### Only Combine Pull Requests that match a branch suffix
+
+```bash
+gh combine owner/repo --branch-suffix "-some-cool-feature"
+```
+
+### Ignore Pull Requests that have a certain Label
+
+```bash
+gh combine owner/repo --ignore-label wip
+
+# or use the --ignore-labels flag if you want to ignore multiple labels
+gh combine owner/repo --ignore-labels wip,dependencies
+```
+
+### Update the Resulting Combined Pull Request Branch if Possible
+
+```bash
+gh combine owner/repo --update-branch
 ```
 
 ### Running with Debug Logging
