@@ -33,6 +33,7 @@ var (
 	baseBranch          string
 	combineBranchName   string
 	workingBranchSuffix string
+	dependabot          bool
 )
 
 // NewRootCmd creates the root command for the gh-combine CLI
@@ -42,8 +43,16 @@ func NewRootCmd() *cobra.Command {
 		Short: "Combine multiple pull requests into a single PR",
 		Long: `Combine multiple pull requests that match specific criteria into a single PR.
     Examples:
-      # Basic usage with a single repository (will default to "--branch-prefix dependabot/" and "--minimum 2")
-      gh combine octocat/hello-world
+	  # Note: You should use some form of filtering to avoid combining all open PRs in a repository.
+	  # For example, you can filter by branch name, labels, or other criteria.
+	  # Forms of filtering include:
+	  # --label, --labels, --ignore-label, --ignore-labels, --branch-prefix, --branch-suffix, --branch-regex, --dependabot, etc.
+
+      # Basic usage with a single repository to combine all pull requests into one
+      gh combine owner/repo
+
+	  # Basic usage to only combine pull requests from dependabot
+	  gh combine owner/repo --dependabot
     
       # Multiple repositories (comma-separated)
       gh combine octocat/repo1,octocat/repo2
@@ -61,38 +70,38 @@ func NewRootCmd() *cobra.Command {
       gh combine --file repos.txt
     
       # Filter PRs by branch name
-      gh combine octocat/hello-world --branch-prefix dependabot/ # Only include PRs with the standard dependabot branch prefix
-      gh combine octocat/hello-world --branch-suffix -update
-      gh combine octocat/hello-world --branch-regex "dependabot/.*"
+      gh combine owner/repo --branch-prefix dependabot/ # Only include PRs with the standard dependabot branch prefix
+      gh combine owner/repo --branch-suffix -update
+      gh combine owner/repo --branch-regex "dependabot/.*"
     
       # Filter PRs by labels
-      gh combine octocat/hello-world --label dependencies        # PRs must have this single label
-      gh combine octocat/hello-world --labels security,dependencies  # PRs must have ALL these labels
+      gh combine owner/repo --label dependencies        # PRs must have this single label
+      gh combine owner/repo --labels security,dependencies  # PRs must have ALL these labels
       
       # Exclude PRs by labels
-      gh combine octocat/hello-world --ignore-label wip          # Ignore PRs with this label
-      gh combine octocat/hello-world --ignore-labels wip,draft   # Ignore PRs with ANY of these labels
+      gh combine owner/repo --ignore-label wip          # Ignore PRs with this label
+      gh combine owner/repo --ignore-labels wip,draft   # Ignore PRs with ANY of these labels
     
       # Set requirements for PRs to be combined
-      gh combine octocat/hello-world --require-ci                # Only include PRs with passing CI
-      gh combine octocat/hello-world --require-approved          # Only include approved PRs
-      gh combine octocat/hello-world --minimum 3                 # Need at least 3 matching PRs
+      gh combine owner/repo --require-ci                # Only include PRs with passing CI
+      gh combine owner/repo --require-approved          # Only include approved PRs
+      gh combine owner/repo --minimum 3                 # Need at least 3 matching PRs
     
       # Add metadata to combined PR
-      gh combine octocat/hello-world --add-labels security,dependencies   # Add these labels to the new PR
-      gh combine octocat/hello-world --add-assignees octocat,hubot        # Assign users to the new PR
+      gh combine owner/repo --add-labels security,dependencies   # Add these labels to the new PR
+      gh combine owner/repo --add-assignees octocat,hubot        # Assign users to the new PR
     
       # Additional options
-      gh combine octocat/hello-world --autoclose                         # Close source PRs when combined PR is merged
-	  gh combine octocat/hello-world --base-branch main                  # Use a different base branch for the combined PR
-	  gh combine octocat/hello-world --combine-branch-name combined-prs  # Use a different name for the combined PR branch
-	  gh combine octocat/hello-world --working-branch-suffix -working    # Use a different suffix for the working branch
-      gh combine octocat/hello-world --update-branch                     # Update the branch of the combined PR`,
+      gh combine owner/repo --autoclose                         # Close source PRs when combined PR is merged
+	  gh combine owner/repo --base-branch main                  # Use a different base branch for the combined PR
+	  gh combine owner/repo --combine-branch-name combined-prs  # Use a different name for the combined PR branch
+	  gh combine owner/repo --working-branch-suffix -working    # Use a different suffix for the working branch
+      gh combine owner/repo --update-branch                     # Update the branch of the combined PR`,
 		RunE: runCombine,
 	}
 
 	// Add flags
-	rootCmd.Flags().StringVar(&branchPrefix, "branch-prefix", "dependabot/", "Branch prefix to filter PRs")
+	rootCmd.Flags().StringVar(&branchPrefix, "branch-prefix", "", "Branch prefix to filter PRs")
 	rootCmd.Flags().StringVar(&branchSuffix, "branch-suffix", "", "Branch suffix to filter PRs")
 	rootCmd.Flags().StringVar(&branchRegex, "branch-regex", "", "Regex pattern to filter PRs by branch name")
 
@@ -110,6 +119,7 @@ func NewRootCmd() *cobra.Command {
 	// Other flags
 	rootCmd.Flags().StringSliceVar(&addAssignees, "add-assignees", nil, "Comma-separated list of users to assign to the combined PR")
 	rootCmd.Flags().BoolVar(&requireCI, "require-ci", false, "Only include PRs with passing CI checks")
+	rootCmd.Flags().BoolVar(&dependabot, "dependabot", false, "Only include PRs with the dependabot branch prefix")
 	rootCmd.Flags().BoolVar(&mustBeApproved, "require-approved", false, "Only include PRs that have been approved")
 	rootCmd.Flags().BoolVar(&autoclose, "autoclose", false, "Close source PRs when combined PR is merged")
 	rootCmd.Flags().BoolVar(&updateBranch, "update-branch", false, "Update the branch of the combined PR if possible")
@@ -141,6 +151,11 @@ func runCombine(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	Logger.Debug("starting gh-combine", "version", version.String())
+
+	// if the dependabot flag is set, set the branch prefix to "dependabot/"
+	if dependabot {
+		branchPrefix = "dependabot/"
+	}
 
 	// Input validation
 	if err := ValidateInputs(args); err != nil {
