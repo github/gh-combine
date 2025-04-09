@@ -152,9 +152,8 @@ func runCombine(cmd *cobra.Command, args []string) error {
 
 	Logger.Debug("starting gh-combine", "version", version.String())
 
-	// if the dependabot flag is set, set the branch prefix to "dependabot/"
-	if dependabot {
-		branchPrefix = "dependabot/"
+	// if the dependabot flag is set and branchPrefix is not already set, set the branch prefix to "dependabot/"
+	if dependabot && branchPrefix == "" {
 	}
 
 	// Input validation
