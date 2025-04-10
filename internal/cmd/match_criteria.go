@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/api"
@@ -11,14 +12,14 @@ import (
 )
 
 // checks if a PR matches all filtering criteria
-func PrMatchesCriteria(branch string, prLabels []struct{ Name string }) bool {
+func PrMatchesCriteria(branch string, prLabels []string) bool {
 	// Check branch criteria if any are specified
 	if !branchMatchesCriteria(branch) {
 		return false
 	}
 
 	// Check label criteria if any are specified
-	if !labelsMatchCriteria(prLabels) {
+	if !labelsMatch(prLabels, ignoreLabels, selectLabels) {
 		return false
 	}
 
@@ -58,61 +59,22 @@ func branchMatchesCriteria(branch string) bool {
 	return true
 }
 
-// labelsMatchCriteria checks if PR labels match the label filtering criteria
-func labelsMatchCriteria(prLabels []struct{ Name string }) bool {
-	// If no label filters are specified, all PRs pass this check
-	if ignoreLabel == "" && len(ignoreLabels) == 0 &&
-		selectLabel == "" && len(selectLabels) == 0 {
-		return true
-	}
-
-	// Check for ignore label (singular)
-	if ignoreLabel != "" {
-		for _, label := range prLabels {
-			if label.Name == ignoreLabel {
-				return false
-			}
-		}
-	}
-
-	// Check for ignore labels (plural)
-	if len(ignoreLabels) > 0 {
-		for _, ignoreL := range ignoreLabels {
-			for _, prLabel := range prLabels {
-				if prLabel.Name == ignoreL {
-					return false
-				}
-			}
-		}
-	}
-
-	// Check for select label (singular)
-	if selectLabel != "" {
-		found := false
-		for _, label := range prLabels {
-			if label.Name == selectLabel {
-				found = true
-				break
-			}
-		}
-		if !found {
+func labelsMatch(prLabels, ignoreLabels, selectLabels []string) bool {
+	for _, l := range ignoreLabels {
+		if i := slices.Index(prLabels, l); i != -1 {
 			return false
 		}
 	}
 
-	// Check for select labels (plural)
-	if len(selectLabels) > 0 {
-		for _, requiredLabel := range selectLabels {
-			found := false
-			for _, prLabel := range prLabels {
-				if prLabel.Name == requiredLabel {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return false
-			}
+	for _, l := range selectLabels {
+		found := false
+		if i := slices.Index(prLabels, l); i != -1 {
+			found = true
+			break
+		}
+
+		if !found {
+			return false
 		}
 	}
 
