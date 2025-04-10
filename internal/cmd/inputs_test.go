@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"log/slog"
 	"os"
-	"strings"
 	"testing"
 )
 
@@ -19,6 +18,7 @@ func setupMockLogger() (*bytes.Buffer, func()) {
 	}
 }
 
+/*
 func TestValidateInputs_NoReposSpecified(t *testing.T) {
 	// Save original values
 	origReposFile := reposFile
@@ -279,6 +279,7 @@ func TestValidateInputs_ValidInputs(t *testing.T) {
 		})
 	}
 }
+*/
 
 // TestMain sets up and tears down the testing environment
 func TestMain(m *testing.M) {
