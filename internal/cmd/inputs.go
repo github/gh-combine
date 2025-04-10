@@ -6,11 +6,12 @@ import (
 	"slices"
 )
 
-var errIgnoreLabelsConflict = errors.New("--ignore-labels contains a value which conflicts with --labels")
+var errLabelsConflict = errors.New("--ignore-labels contains a value which conflicts with --labels")
 
 // validateInputs checks if the provided inputs are valid
 func ValidateInputs(args []string) error {
 	if err := ValidateLabels(selectLabels, ignoreLabels); err != nil {
+		return err
 	}
 
 	// If no args and no file, we can't proceed
@@ -32,7 +33,7 @@ func ValidateLabels(selectLabels []string, ignoreLabels []string) error {
 	// Check for conflicts between ignoreLabels and selectLabels
 	for _, ignoreL := range ignoreLabels {
 		if i := slices.Index(selectLabels, ignoreL); i != -1 {
-			return fmt.Errorf("%w: %q %q", errIgnoreLabelsConflict, ignoreLabels[i], selectLabels)
+			return fmt.Errorf("%w: %q %q", errLabelsConflict, selectLabels[i], ignoreLabels)
 		}
 	}
 

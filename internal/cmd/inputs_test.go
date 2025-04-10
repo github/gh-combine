@@ -1,12 +1,53 @@
 package cmd
 
 import (
-	"bytes"
-	"log/slog"
+	"errors"
 	"os"
 	"testing"
 )
 
+func TestValidateLabels(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		selectLabels []string
+		ignoreLabels []string
+		want         error
+	}{
+		{
+			want: nil,
+		},
+		{
+			selectLabels: []string{"a"},
+			ignoreLabels: []string{"b"},
+			want:         nil,
+		},
+		{
+			selectLabels: []string{"a"},
+			ignoreLabels: []string{"a", "b"},
+			want:         errLabelsConflict,
+		},
+		{
+			selectLabels: []string{"a", "b"},
+			ignoreLabels: []string{"b"},
+			want:         errLabelsConflict,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run("", func(t *testing.T) {
+			t.Parallel()
+
+			got := ValidateLabels(test.selectLabels, test.ignoreLabels)
+
+			if !errors.Is(got, test.want) {
+				t.Fatalf("want %s, but go %s", test.want, got)
+			}
+		})
+	}
+}
+
+/*
 // mockLogger creates a test logger that writes to a bytes.Buffer
 func setupMockLogger() (*bytes.Buffer, func()) {
 	var buf bytes.Buffer
@@ -18,7 +59,6 @@ func setupMockLogger() (*bytes.Buffer, func()) {
 	}
 }
 
-/*
 func TestValidateInputs_NoReposSpecified(t *testing.T) {
 	// Save original values
 	origReposFile := reposFile
