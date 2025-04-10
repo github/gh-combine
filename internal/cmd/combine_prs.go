@@ -17,7 +17,8 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 	Branch  string
 	Base    string
 	BaseSHA string
-}) error {
+},
+) error {
 	// Define the combined branch name
 	workingBranchName := combineBranchName + workingBranchSuffix
 

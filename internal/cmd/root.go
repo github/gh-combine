@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/api"
-
 	"github.com/spf13/cobra"
 
 	"github.com/github/gh-combine/internal/version"

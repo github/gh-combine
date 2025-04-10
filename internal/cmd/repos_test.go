@@ -55,7 +55,7 @@ repo3
    
   repo4  
 `
-	err := os.WriteFile(validFilePath, []byte(validFileContent), 0644)
+	err := os.WriteFile(validFilePath, []byte(validFileContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -173,7 +173,7 @@ repo3  # Comment after repo
     # Indented comment with spaces
     
 `
-	err := os.WriteFile(testFilePath, []byte(fileContent), 0644)
+	err := os.WriteFile(testFilePath, []byte(fileContent), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
