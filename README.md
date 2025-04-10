@@ -97,10 +97,10 @@ By using the `--minimum` flag you can require a minimum number of pull requests 
 gh combine owner/repo --minimum 3
 ```
 
-### Only Combine Pull Requests that match a given Label
+### Only Combine Pull Requests that match a given Label(s)
 
 ```bash
-gh combine owner/repo --label dependencies
+gh combine owner/repo --labels dependencies
 ```
 
 You can also require a set of multiple labels
@@ -127,12 +127,9 @@ gh combine owner/repo --branch-prefix "dependabot/"
 gh combine owner/repo --branch-suffix "-some-cool-feature"
 ```
 
-### Ignore Pull Requests that have a certain Label
+### Ignore Pull Requests that have a certain Label(s)
 
 ```bash
-gh combine owner/repo --ignore-label wip
-
-# or use the --ignore-labels flag if you want to ignore multiple labels
 gh combine owner/repo --ignore-labels wip,dependencies
 ```
 
