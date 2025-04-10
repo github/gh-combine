@@ -14,19 +14,20 @@ import (
 )
 
 var (
-	branchPrefix        string
-	branchSuffix        string
-	branchRegex         string
-	selectLabel         string
-	selectLabels        []string
-	addLabels           []string
-	addAssignees        []string
+	branchPrefix string
+	branchSuffix string
+	branchRegex  string
+
+	selectLabels []string
+	ignoreLabels []string
+
+	addLabels    []string
+	addAssignees []string
+
 	requireCI           bool
 	mustBeApproved      bool
 	autoclose           bool
 	updateBranch        bool
-	ignoreLabel         string
-	ignoreLabels        []string
 	reposFile           string
 	minimum             int
 	defaultOwner        string
@@ -46,7 +47,7 @@ func NewRootCmd() *cobra.Command {
 	  # Note: You should use some form of filtering to avoid combining all open PRs in a repository.
 	  # For example, you can filter by branch name, labels, or other criteria.
 	  # Forms of filtering include:
-	  # --label, --labels, --ignore-label, --ignore-labels, --branch-prefix, --branch-suffix, --branch-regex, --dependabot, etc.
+	  # --labels, --ignore-labels, --branch-prefix, --branch-suffix, --branch-regex, --dependabot, etc.
 
       # Basic usage with a single repository to combine all pull requests into one
       gh combine owner/repo
@@ -75,11 +76,11 @@ func NewRootCmd() *cobra.Command {
       gh combine owner/repo --branch-regex "dependabot/.*"
     
       # Filter PRs by labels
-      gh combine owner/repo --label dependencies        # PRs must have this single label
+      gh combine owner/repo --labels dependencies           # PRs must have this single label
       gh combine owner/repo --labels security,dependencies  # PRs must have ALL these labels
       
       # Exclude PRs by labels
-      gh combine owner/repo --ignore-label wip          # Ignore PRs with this label
+      gh combine owner/repo --ignore-labels wip         # Ignore PRs with this label
       gh combine owner/repo --ignore-labels wip,draft   # Ignore PRs with ANY of these labels
     
       # Set requirements for PRs to be combined
@@ -105,12 +106,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.Flags().StringVar(&branchSuffix, "branch-suffix", "", "Branch suffix to filter PRs")
 	rootCmd.Flags().StringVar(&branchRegex, "branch-regex", "", "Regex pattern to filter PRs by branch name")
 
-	// Label selection flags - singular and plural forms
-	rootCmd.Flags().StringVar(&selectLabel, "label", "", "Only include PRs with this specific label")
 	rootCmd.Flags().StringSliceVar(&selectLabels, "labels", nil, "Only include PRs with ALL these labels (comma-separated)")
-
-	// Label ignoring flags - singular and plural forms
-	rootCmd.Flags().StringVar(&ignoreLabel, "ignore-label", "", "Ignore PRs with this specific label")
 	rootCmd.Flags().StringSliceVar(&ignoreLabels, "ignore-labels", nil, "Ignore PRs with ANY of these labels (comma-separated)")
 
 	// Labels to add to the combined PR
@@ -278,8 +274,16 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 	for _, pull := range pulls {
 		branch := pull.Head.Ref
 
+		// Temporary workaround because passing structures is useless in this
+		// context.
+		// Eventually the []Labels should have better support.
+		labels := []string{}
+		for _, label := range pull.Labels {
+			labels = append(labels, label.Name)
+		}
+
 		// Check if PR matches all filtering criteria
-		if !PrMatchesCriteria(branch, pull.Labels) {
+		if !PrMatchesCriteria(branch, labels) {
 			continue
 		}
 
