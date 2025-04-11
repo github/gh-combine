@@ -12,7 +12,7 @@ import (
 	"github.com/github/gh-combine/internal/github"
 )
 
-func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClient *api.RESTClient, owner, repo string, matchedPRs github.Pulls) error {
+func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClient *api.RESTClient, owner, repo string, pulls github.Pulls) error {
 	// Define the combined branch name
 	workingBranchName := combineBranchName + workingBranchSuffix
 
@@ -54,7 +54,7 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 	// Merge all PR branches into the working branch
 	var combinedPRs []string
 	var mergeFailedPRs []string
-	for _, pr := range matchedPRs {
+	for _, pr := range pulls {
 		err := mergeBranch(ctx, restClient, owner, repo, workingBranchName, pr.Head.Ref)
 		if err != nil {
 			// Check if the error is a 409 merge conflict
