@@ -28,6 +28,11 @@ func PrMatchesCriteria(branch string, prLabels []string) bool {
 
 // checks if a branch matches the branch filtering criteria
 func branchMatchesCriteria(branch string) bool {
+	// Do not attempt to match on existing branches that were created by this CLI
+	if branch == combineBranchName {
+		return false
+	}
+
 	// If no branch filters are specified, all branches pass this check
 	if branchPrefix == "" && branchSuffix == "" && branchRegex == "" {
 		return true
