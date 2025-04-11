@@ -17,11 +17,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Go
+      - name: setup go
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: Launch golangci-lint
+      - name: run golangci-lint
         uses: golangci/golangci-lint-action@v7
