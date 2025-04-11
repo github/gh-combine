@@ -28,23 +28,28 @@ func PrMatchesCriteria(branch string, prLabels []string) bool {
 
 // checks if a branch matches the branch filtering criteria
 func branchMatchesCriteria(branch string) bool {
+	Logger.Debug("Checking branch criteria", "branch", branch)
 	// Do not attempt to match on existing branches that were created by this CLI
 	if branch == combineBranchName {
+		Logger.Debug("Branch is a combine branch, skipping match")
 		return false
 	}
 
 	// If no branch filters are specified, all branches pass this check
 	if branchPrefix == "" && branchSuffix == "" && branchRegex == "" {
+		Logger.Debug("No branch filters specified, passing match")
 		return true
 	}
 
 	// Apply branch prefix filter if specified
 	if branchPrefix != "" && !strings.HasPrefix(branch, branchPrefix) {
+		Logger.Debug("Branch does not match prefix", "prefix", branchPrefix, "branch", branch)
 		return false
 	}
 
 	// Apply branch suffix filter if specified
 	if branchSuffix != "" && !strings.HasSuffix(branch, branchSuffix) {
+		Logger.Debug("Branch does not match suffix", "suffix", branchSuffix, "branch", branch)
 		return false
 	}
 
@@ -57,10 +62,12 @@ func branchMatchesCriteria(branch string) bool {
 		}
 
 		if !regex.MatchString(branch) {
+			Logger.Debug("Branch does not match regex", "regex", branchRegex, "branch", branch)
 			return false
 		}
 	}
 
+	Logger.Debug("Branch matches all branch criteria", "branch", branch)
 	return true
 }
 

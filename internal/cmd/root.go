@@ -235,11 +235,10 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 		// Continue processing
 	}
 
-	// Get open PRs for the repository
-	var pulls github.Pulls
-
-	if err := client.Get(repo.PullsEndpoint(), &pulls); err != nil {
-		return err
+	// Fetch all open pull requests for the repository
+	pulls, err := fetchOpenPullRequests(ctx, client, repo)
+	if err != nil {
+		return fmt.Errorf("failed to fetch open pull requests: %w", err)
 	}
 
 	// Check for cancellation again
@@ -253,9 +252,7 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 	// Filter PRs based on criteria
 	var matchedPRs github.Pulls
 	for _, pull := range pulls {
-		// Temporary workaround because passing structures is useless in this
-		// context.
-		// Eventually the []Labels should have better support.
+		// Extract labels
 		labels := []string{}
 		for _, label := range pull.Labels {
 			labels = append(labels, label.Name)
@@ -290,10 +287,51 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 	Logger.Debug("Matched PRs", "repo", repo, "count", len(matchedPRs))
 
 	// Combine the PRs
-	err := CombinePRs(ctx, graphQlClient, client, repo, matchedPRs)
+	err = CombinePRs(ctx, graphQlClient, client, repo, matchedPRs)
 	if err != nil {
 		return fmt.Errorf("failed to combine PRs: %w", err)
 	}
 
+	Logger.Debug("Combined PRs", "count", len(matchedPRs), "owner", repo.Owner, "repo", repo.Repo)
+
 	return nil
+}
+
+// fetchOpenPullRequests fetches all open pull requests for a repository, handling pagination
+func fetchOpenPullRequests(ctx context.Context, client *api.RESTClient, repo github.Repo) (github.Pulls, error) {
+	var allPulls github.Pulls
+	page := 1
+
+	for {
+		// Check for cancellation
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			// Continue processing
+		}
+
+		var pulls github.Pulls
+		endpoint := fmt.Sprintf("%s?state=open&page=%d&per_page=100", repo.PullsEndpoint(), page)
+		if err := client.Get(endpoint, &pulls); err != nil {
+			return nil, fmt.Errorf("failed to fetch pull requests from page %d: %w", page, err)
+		}
+
+		// If the current page is empty, we've reached the end
+		if len(pulls) == 0 {
+			break
+		}
+
+		// Append fetched pulls to the result
+		allPulls = append(allPulls, pulls...)
+
+		// If fewer than 100 PRs are returned, we've reached the last page
+		if len(pulls) < 100 {
+			break
+		}
+
+		page++
+	}
+
+	return allPulls, nil
 }
