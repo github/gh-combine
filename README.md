@@ -2,9 +2,10 @@
 
 A gh cli extension to automatically combine multiple pull requests into one.
 
+[![test](https://github.com/github/gh-combine/actions/workflows/test.yml/badge.svg)](https://github.com/github/gh-combine/actions/workflows/test.yml)
 [![build](https://github.com/github/gh-combine/actions/workflows/build.yml/badge.svg)](https://github.com/github/gh-combine/actions/workflows/build.yml)
 [![lint](https://github.com/github/gh-combine/actions/workflows/lint.yml/badge.svg)](https://github.com/github/gh-combine/actions/workflows/lint.yml)
-[![test](https://github.com/github/gh-combine/actions/workflows/test.yml/badge.svg)](https://github.com/github/gh-combine/actions/workflows/test.yml)
+[![golangci-lint](https://github.com/github/gh-combine/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/github/gh-combine/actions/workflows/golangci-lint.yml)
 [![release](https://github.com/github/gh-combine/actions/workflows/release.yml/badge.svg)](https://github.com/github/gh-combine/actions/workflows/release.yml)
 
 ## About ⭐
