@@ -184,9 +184,9 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 	if err != nil {
 		return fmt.Errorf("failed to create REST client: %w", err)
 	}
-  
-  // Create GitHub GraphQL client
-  graphQlClient, err := api.DefaultGraphQLClient()
+
+	// Create GitHub GraphQL client
+	graphQlClient, err := api.DefaultGraphQLClient()
 	if err != nil {
 		return fmt.Errorf("failed to create GraphQLClient client: %w", err)
 	}
