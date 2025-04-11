@@ -44,6 +44,30 @@ func TestLabelsMatch(t *testing.T) {
 			selectLabels: []string{"a", "c"},
 			want:         true,
 		},
+		{
+			prLabels:     []string{},
+			ignoreLabels: []string{"b"},
+			selectLabels: []string{"a", "c"},
+			want:         false,
+		},
+		{
+			prLabels:     []string{},
+			ignoreLabels: []string{"b"},
+			selectLabels: []string{},
+			want:         true,
+		},
+		{
+			prLabels:     []string{},
+			ignoreLabels: []string{},
+			selectLabels: []string{"a"},
+			want:         false,
+		},
+		{
+			prLabels:     []string{},
+			ignoreLabels: []string{},
+			selectLabels: []string{},
+			want:         true,
+		},
 	}
 
 	for _, test := range tests {
