@@ -292,6 +292,8 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 		return fmt.Errorf("failed to combine PRs: %w", err)
 	}
 
+	Logger.Debug("Combined PRs", "count", len(matchedPRs), "owner", repo.Owner, "repo", repo.Repo)
+
 	return nil
 }
 
