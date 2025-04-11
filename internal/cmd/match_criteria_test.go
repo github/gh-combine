@@ -228,3 +228,80 @@ func TestBranchMatchesCriteria(t *testing.T) {
 		})
 	}
 }
+
+func prMatchesCriteriaWithMocks(branch string, prLabels []string, branchMatches func(string) bool, labelsMatch func([]string, []string, []string) bool) bool {
+	return branchMatches(branch) && labelsMatch(prLabels, nil, nil)
+}
+
+func TestPrMatchesCriteriaWithMocks(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		branch     string
+		prLabels   []string
+		branchPass bool
+		labelsPass bool
+		want       bool
+	}{
+		{
+			name:       "Branch and labels match",
+			branch:     "feature/test",
+			prLabels:   []string{"bug", "enhancement"},
+			branchPass: true,
+			labelsPass: true,
+			want:       true,
+		},
+		{
+			name:       "Branch does not match",
+			branch:     "hotfix/test",
+			prLabels:   []string{"bug", "enhancement"},
+			branchPass: false,
+			labelsPass: true,
+			want:       false,
+		},
+		{
+			name:       "Labels do not match",
+			branch:     "feature/test",
+			prLabels:   []string{"wip"},
+			branchPass: true,
+			labelsPass: false,
+			want:       false,
+		},
+		{
+			name:       "Neither branch nor labels match",
+			branch:     "hotfix/test",
+			prLabels:   []string{"wip"},
+			branchPass: false,
+			labelsPass: false,
+			want:       false,
+		},
+		{
+			name:       "No branch or label filters specified",
+			branch:     "any-branch",
+			prLabels:   []string{},
+			branchPass: true,
+			labelsPass: true,
+			want:       true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Mock branchMatchesCriteria and labelsMatch
+			mockBranchMatchesCriteria := func(branch string) bool {
+				return test.branchPass
+			}
+			mockLabelsMatch := func(prLabels []string, ignoreLabels []string, selectLabels []string) bool {
+				return test.labelsPass
+			}
+
+			got := prMatchesCriteriaWithMocks(test.branch, test.prLabels, mockBranchMatchesCriteria, mockLabelsMatch)
+			if got != test.want {
+				t.Errorf("PrMatchesCriteria(%q, %v) = %v; want %v", test.branch, test.prLabels, got, test.want)
+			}
+		})
+	}
+}
