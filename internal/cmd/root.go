@@ -147,8 +147,8 @@ func runCombine(cmd *cobra.Command, args []string) error {
 
 	Logger.Debug("starting gh-combine", "version", version.String())
 
-	// if the dependabot flag is set and branchPrefix is not already set, set the branch prefix to "dependabot/"
 	if dependabot && branchPrefix == "" {
+		branchPrefix = "dependabot/"
 	}
 
 	// Input validation
@@ -181,9 +181,14 @@ func runCombine(cmd *cobra.Command, args []string) error {
 func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string) error {
 	// Create GitHub API client
 	restClient, err := api.DefaultRESTClient()
-	graphQlClient, err := api.DefaultGraphQLClient()
 	if err != nil {
 		return fmt.Errorf("failed to create REST client: %w", err)
+	}
+  
+  // Create GitHub GraphQL client
+  graphQlClient, err := api.DefaultGraphQLClient()
+	if err != nil {
+		return fmt.Errorf("failed to create GraphQLClient client: %w", err)
 	}
 
 	for _, repoString := range repos {

@@ -60,25 +60,32 @@ func branchMatchesCriteria(branch string) bool {
 }
 
 func labelsMatch(prLabels, ignoreLabels, selectLabels []string) bool {
+	// If no ignoreLabels or selectLabels are specified, all labels pass this check
+	if len(ignoreLabels) == 0 && len(selectLabels) == 0 {
+		return true
+	}
+
+	// If the pull request contains any of the ignore labels, it doesn't match
 	for _, l := range ignoreLabels {
-		if i := slices.Index(prLabels, l); i != -1 {
+		if slices.Contains(prLabels, l) {
 			return false
 		}
 	}
 
+	// If selectLabels are specified but the pull request has no labels, it doesn't match
+	if len(selectLabels) > 0 && len(prLabels) == 0 {
+		return false
+	}
+
+	// If the pull request contains any of the select labels, it matches
 	for _, l := range selectLabels {
-		found := false
-		if i := slices.Index(prLabels, l); i != -1 {
-			found = true
-			break
-		}
-
-		if !found {
-			return false
+		if slices.Contains(prLabels, l) {
+			return true
 		}
 	}
 
-	return true
+	// If none of the select labels are found, it doesn't match
+	return len(selectLabels) == 0
 }
 
 // GraphQL response structure for PR status info
