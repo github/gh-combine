@@ -66,17 +66,10 @@ func labelsMatch(prLabels, ignoreLabels, selectLabels []string) bool {
 	}
 
 	// If the pull request contains any of the ignore labels, it doesn't match
-	if len(ignoreLabels) > 0 && len(prLabels) > 0 {
-		for _, l := range ignoreLabels {
-			if i := slices.Index(prLabels, l); i != -1 {
-				return false
-			}
+	for _, l := range ignoreLabels {
+		if slices.Contains(prLabels, l) {
+			return false
 		}
-	}
-
-	// If ignoreLabels are specified without selectLabels and the pull request has no labels, it matches
-	if len(ignoreLabels) > 0 && len(selectLabels) == 0 && len(prLabels) == 0 {
-		return true
 	}
 
 	// If selectLabels are specified but the pull request has no labels, it doesn't match
@@ -85,17 +78,14 @@ func labelsMatch(prLabels, ignoreLabels, selectLabels []string) bool {
 	}
 
 	// If the pull request contains any of the select labels, it matches
-	if len(selectLabels) > 0 && len(prLabels) > 0 {
-		for _, l := range selectLabels {
-			if i := slices.Index(prLabels, l); i != -1 {
-				return true
-			}
+	for _, l := range selectLabels {
+		if slices.Contains(prLabels, l) {
+			return true
 		}
-		// If none of the select labels are found, it doesn't match
-		return false
 	}
 
-	return true
+	// If none of the select labels are found, it doesn't match
+	return len(selectLabels) == 0
 }
 
 // GraphQL response structure for PR status info
