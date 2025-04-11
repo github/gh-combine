@@ -69,7 +69,6 @@ func labelsMatch(prLabels, ignoreLabels, selectLabels []string) bool {
 	for _, l := range selectLabels {
 		found := false
 		if i := slices.Index(prLabels, l); i != -1 {
-			found = true
 			break
 		}
 
