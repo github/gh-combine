@@ -9,6 +9,7 @@ import (
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
 
+	"github.com/github/gh-combine/internal/github"
 	"github.com/github/gh-combine/internal/version"
 )
 
@@ -233,20 +234,7 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 	}
 
 	// Get open PRs for the repository
-	var pulls []struct {
-		Number int
-		Title  string
-		Head   struct {
-			Ref string
-		}
-		Base struct {
-			Ref string
-			SHA string
-		}
-		Labels []struct {
-			Name string
-		}
-	}
+	var pulls github.Pulls
 
 	endpoint := fmt.Sprintf("repos/%s/%s/pulls?state=open", owner, repoName)
 	if err := client.Get(endpoint, &pulls); err != nil {
@@ -262,17 +250,8 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 	}
 
 	// Filter PRs based on criteria
-	var matchedPRs []struct {
-		Number  int
-		Title   string
-		Branch  string
-		Base    string
-		BaseSHA string
-	}
-
+	var matchedPRs github.Pulls
 	for _, pull := range pulls {
-		branch := pull.Head.Ref
-
 		// Temporary workaround because passing structures is useless in this
 		// context.
 		// Eventually the []Labels should have better support.
@@ -282,7 +261,7 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 		}
 
 		// Check if PR matches all filtering criteria
-		if !PrMatchesCriteria(branch, labels) {
+		if !PrMatchesCriteria(pull.Head.Ref, labels) {
 			continue
 		}
 
@@ -298,19 +277,7 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 			continue
 		}
 
-		matchedPRs = append(matchedPRs, struct {
-			Number  int
-			Title   string
-			Branch  string
-			Base    string
-			BaseSHA string
-		}{
-			Number:  pull.Number,
-			Title:   pull.Title,
-			Branch:  branch,
-			Base:    pull.Base.Ref,
-			BaseSHA: pull.Base.SHA,
-		})
+		matchedPRs = append(matchedPRs, pull)
 	}
 
 	// Check if we have enough PRs to combine

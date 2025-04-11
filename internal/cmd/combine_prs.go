@@ -9,16 +9,10 @@ import (
 	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/api"
+	"github.com/github/gh-combine/internal/github"
 )
 
-func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClient *api.RESTClient, owner, repo string, matchedPRs []struct {
-	Number  int
-	Title   string
-	Branch  string
-	Base    string
-	BaseSHA string
-},
-) error {
+func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClient *api.RESTClient, owner, repo string, matchedPRs github.Pulls) error {
 	// Define the combined branch name
 	workingBranchName := combineBranchName + workingBranchSuffix
 
@@ -61,19 +55,19 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 	var combinedPRs []string
 	var mergeFailedPRs []string
 	for _, pr := range matchedPRs {
-		err := mergeBranch(ctx, restClient, owner, repo, workingBranchName, pr.Branch)
+		err := mergeBranch(ctx, restClient, owner, repo, workingBranchName, pr.Head.Ref)
 		if err != nil {
 			// Check if the error is a 409 merge conflict
 			if isMergeConflictError(err) {
 				// Log merge conflicts at DEBUG level
-				Logger.Debug("Merge conflict", "branch", pr.Branch, "error", err)
+				Logger.Debug("Merge conflict", "branch", pr.Head.Ref, "error", err)
 			} else {
 				// Log other errors at WARN level
-				Logger.Warn("Failed to merge branch", "branch", pr.Branch, "error", err)
+				Logger.Warn("Failed to merge branch", "branch", pr.Head.Ref, "error", err)
 			}
 			mergeFailedPRs = append(mergeFailedPRs, fmt.Sprintf("#%d", pr.Number))
 		} else {
-			Logger.Debug("Merged branch", "branch", pr.Branch)
+			Logger.Debug("Merged branch", "branch", pr.Head.Ref)
 			combinedPRs = append(combinedPRs, fmt.Sprintf("#%d - %s", pr.Number, pr.Title))
 		}
 	}
