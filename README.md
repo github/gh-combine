@@ -109,6 +109,8 @@ You can also require a set of multiple labels
 gh combine owner/repo --labels security,dependencies
 ```
 
+> Note that the labels are OR'd together. So if a pull request has either label, it will be included in the combined pull request. Meaning that if you use `--labels security,dependencies` and a pull request has the `security` label, it will be included in the combined pull request even if it does not have the `dependencies` label.
+
 ### Only Combine Pull Requests that match a given Regex
 
 ```bash
@@ -132,6 +134,8 @@ gh combine owner/repo --branch-suffix "-some-cool-feature"
 ```bash
 gh combine owner/repo --ignore-labels wip,dependencies
 ```
+
+> Note that labels are OR'd together. So if a pull request has either label, it will be ignored in the combined pull request. Meaning that if you use `--ignore-labels wip,dependencies` and a pull request has the `wip` label, it will be ignored in the combined pull request even if it does not have the `dependencies` label.
 
 ### Update the Resulting Combined Pull Request Branch if Possible
 
