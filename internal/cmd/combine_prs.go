@@ -12,41 +12,41 @@ import (
 	"github.com/github/gh-combine/internal/github"
 )
 
-func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClient *api.RESTClient, owner, repo string, pulls github.Pulls) error {
+func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClient *api.RESTClient, repo github.Repo, pulls github.Pulls) error {
 	// Define the combined branch name
 	workingBranchName := combineBranchName + workingBranchSuffix
 
 	// Get the default branch of the repository
-	repoDefaultBranch, err := getDefaultBranch(ctx, restClient, owner, repo)
+	repoDefaultBranch, err := getDefaultBranch(ctx, restClient, repo.Owner, repo.Repo)
 	if err != nil {
 		return fmt.Errorf("failed to get default branch: %w", err)
 	}
 
-	baseBranchSHA, err := getBranchSHA(ctx, restClient, owner, repo, repoDefaultBranch)
+	baseBranchSHA, err := getBranchSHA(ctx, restClient, repo.Owner, repo.Repo, repoDefaultBranch)
 	if err != nil {
 		return fmt.Errorf("failed to get SHA of main branch: %w", err)
 	}
 
 	// Delete any pre-existing working branch
-	err = deleteBranch(ctx, restClient, owner, repo, workingBranchName)
+	err = deleteBranch(ctx, restClient, repo.Owner, repo.Repo, workingBranchName)
 	if err != nil {
 		Logger.Debug("Working branch not found, continuing", "branch", workingBranchName)
 	}
 
 	// Delete any pre-existing combined branch
-	err = deleteBranch(ctx, restClient, owner, repo, combineBranchName)
+	err = deleteBranch(ctx, restClient, repo.Owner, repo.Repo, combineBranchName)
 	if err != nil {
 		Logger.Debug("Combined branch not found, continuing", "branch", combineBranchName)
 	}
 
 	// Create the combined branch
-	err = createBranch(ctx, restClient, owner, repo, combineBranchName, baseBranchSHA)
+	err = createBranch(ctx, restClient, repo.Owner, repo.Repo, combineBranchName, baseBranchSHA)
 	if err != nil {
 		return fmt.Errorf("failed to create combined branch: %w", err)
 	}
 
 	// Create the working branch
-	err = createBranch(ctx, restClient, owner, repo, workingBranchName, baseBranchSHA)
+	err = createBranch(ctx, restClient, repo.Owner, repo.Repo, workingBranchName, baseBranchSHA)
 	if err != nil {
 		return fmt.Errorf("failed to create working branch: %w", err)
 	}
@@ -55,7 +55,7 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 	var combinedPRs []string
 	var mergeFailedPRs []string
 	for _, pr := range pulls {
-		err := mergeBranch(ctx, restClient, owner, repo, workingBranchName, pr.Head.Ref)
+		err := mergeBranch(ctx, restClient, repo.Owner, repo.Repo, workingBranchName, pr.Head.Ref)
 		if err != nil {
 			// Check if the error is a 409 merge conflict
 			if isMergeConflictError(err) {
@@ -73,13 +73,13 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 	}
 
 	// Update the combined branch to the latest commit of the working branch
-	err = updateRef(ctx, restClient, owner, repo, combineBranchName, workingBranchName)
+	err = updateRef(ctx, restClient, repo.Owner, repo.Repo, combineBranchName, workingBranchName)
 	if err != nil {
 		return fmt.Errorf("failed to update combined branch: %w", err)
 	}
 
 	// Delete the temporary working branch
-	err = deleteBranch(ctx, restClient, owner, repo, workingBranchName)
+	err = deleteBranch(ctx, restClient, repo.Owner, repo.Repo, workingBranchName)
 	if err != nil {
 		Logger.Warn("Failed to delete working branch", "branch", workingBranchName, "error", err)
 	}
@@ -87,7 +87,7 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 	// Create the combined PR
 	prBody := generatePRBody(combinedPRs, mergeFailedPRs)
 	prTitle := "Combined PRs"
-	err = createPullRequest(ctx, restClient, owner, repo, prTitle, combineBranchName, repoDefaultBranch, prBody)
+	err = createPullRequest(ctx, restClient, repo.Owner, repo.Repo, prTitle, combineBranchName, repoDefaultBranch, prBody)
 	if err != nil {
 		return fmt.Errorf("failed to create combined PR: %w", err)
 	}
