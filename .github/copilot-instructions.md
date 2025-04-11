@@ -37,4 +37,5 @@ gh combine owner/repo
 4. Write unit tests for new functionality. Use table-driven unit tests when possible.
 5. Document public APIs and complex logic. Suggest changes to the `docs/` folder when appropriate
 6. When responding to code refactoring suggestions, function suggestions, or other code changes, please keep your responses as concise as possible. We are capable engineers and can understand the code changes without excessive explanation. If you feel that a more detailed explanation is necessary, you can provide it, but keep it concise.
-7. If only a small change within a function is needed, please provide just the snippet and ensure there are comments above and below the snippet saying `// start` and `// end`. This will help us understand the context of the change without needing to see the entire function. Before the start, and end comments, please provide a few lines of the context of the function so we know where the change should be made.
+7. When suggesting code changes, always opt for the most maintainable approach. Try your best to keep the code clean and follow DRY principles. Avoid unnecessary complexity and always consider the long-term maintainability of the code.
+8. When writing unit tests, always strive for 100% code coverage where it makes sense. Try to consider edge cases as well.
