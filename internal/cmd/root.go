@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
 
+	"github.com/github/gh-combine/internal/github"
 	"github.com/github/gh-combine/internal/version"
 )
 
@@ -185,12 +185,13 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 		return fmt.Errorf("failed to create REST client: %w", err)
 	}
 
+	// Create GitHub GraphQL client
 	graphQlClient, err := api.DefaultGraphQLClient()
 	if err != nil {
 		return fmt.Errorf("failed to create GraphQLClient client: %w", err)
 	}
 
-	for _, repo := range repos {
+	for _, repoString := range repos {
 		// Check if context was cancelled (CTRL+C pressed)
 		select {
 		case <-ctx.Done():
@@ -199,7 +200,14 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 			// Continue processing
 		}
 
-		spinner.UpdateMessage("Processing " + repo)
+		spinner.UpdateMessage("Parsing " + repoString)
+
+		repo, err := github.ParseRepo(repoString)
+		if err != nil {
+			return fmt.Errorf("failed to parse repo: %w", err)
+		}
+
+		spinner.UpdateMessage("Processing " + repo.String())
 		Logger.Debug("Processing repository", "repo", repo)
 
 		// Process the repository
@@ -218,16 +226,7 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 }
 
 // processRepository handles a single repository's PRs
-func processRepository(ctx context.Context, client *api.RESTClient, graphQlClient *api.GraphQLClient, spinner *Spinner, repo string) error {
-	// Parse owner and repo name
-	parts := strings.Split(repo, "/")
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid repository format: %s", repo)
-	}
-
-	owner := parts[0]
-	repoName := parts[1]
-
+func processRepository(ctx context.Context, client *api.RESTClient, graphQlClient *api.GraphQLClient, spinner *Spinner, repo github.Repo) error {
 	// Check for cancellation
 	select {
 	case <-ctx.Done():
@@ -237,23 +236,9 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 	}
 
 	// Get open PRs for the repository
-	var pulls []struct {
-		Number int
-		Title  string
-		Head   struct {
-			Ref string
-		}
-		Base struct {
-			Ref string
-			SHA string
-		}
-		Labels []struct {
-			Name string
-		}
-	}
+	var pulls github.Pulls
 
-	endpoint := fmt.Sprintf("repos/%s/%s/pulls?state=open", owner, repoName)
-	if err := client.Get(endpoint, &pulls); err != nil {
+	if err := client.Get(repo.PullsEndpoint(), &pulls); err != nil {
 		return err
 	}
 
@@ -266,17 +251,8 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 	}
 
 	// Filter PRs based on criteria
-	var matchedPRs []struct {
-		Number  int
-		Title   string
-		Branch  string
-		Base    string
-		BaseSHA string
-	}
-
+	var matchedPRs github.Pulls
 	for _, pull := range pulls {
-		branch := pull.Head.Ref
-
 		// Temporary workaround because passing structures is useless in this
 		// context.
 		// Eventually the []Labels should have better support.
@@ -286,12 +262,12 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 		}
 
 		// Check if PR matches all filtering criteria
-		if !PrMatchesCriteria(branch, labels) {
+		if !PrMatchesCriteria(pull.Head.Ref, labels) {
 			continue
 		}
 
 		// Check if PR meets additional requirements (CI, approval)
-		meetsRequirements, err := PrMeetsRequirements(ctx, graphQlClient, owner, repoName, pull.Number)
+		meetsRequirements, err := PrMeetsRequirements(ctx, graphQlClient, repo.Owner, repo.Repo, pull.Number)
 		if err != nil {
 			Logger.Warn("Failed to check PR requirements", "repo", repo, "pr", pull.Number, "error", err)
 			continue
@@ -302,19 +278,7 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 			continue
 		}
 
-		matchedPRs = append(matchedPRs, struct {
-			Number  int
-			Title   string
-			Branch  string
-			Base    string
-			BaseSHA string
-		}{
-			Number:  pull.Number,
-			Title:   pull.Title,
-			Branch:  branch,
-			Base:    pull.Base.Ref,
-			BaseSHA: pull.Base.SHA,
-		})
+		matchedPRs = append(matchedPRs, pull)
 	}
 
 	// Check if we have enough PRs to combine
@@ -325,10 +289,8 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 
 	Logger.Debug("Matched PRs", "repo", repo, "count", len(matchedPRs))
 
-	// If we get here, we have enough PRs to combine
-
 	// Combine the PRs
-	err := CombinePRs(ctx, graphQlClient, client, owner, repoName, matchedPRs)
+	err := CombinePRs(ctx, graphQlClient, client, repo, matchedPRs)
 	if err != nil {
 		return fmt.Errorf("failed to combine PRs: %w", err)
 	}
