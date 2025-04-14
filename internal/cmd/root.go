@@ -538,13 +538,9 @@ func displayTableStats(stats *StatsCollector) {
 	// Print summary row in table style
 	summaryLabel := fmt.Sprintf("%-*s", repoCol, "Summary")
 	summaryCombined := fmt.Sprintf("%*d", colWidths[1], stats.PRsCombined)
-	// Skipped: just a single total value number
 	totalSkipped := stats.PRsSkippedMergeConflict + stats.PRsSkippedCriteria
-	summarySkipped := fmt.Sprintf("%d", totalSkipped)
-	summarySkipped = fmt.Sprintf("%-*s", colWidths[2], summarySkipped)
-	// Status: count like "3 repos"
-	summaryStatus := fmt.Sprintf("%d repos", stats.ReposProcessed)
-	summaryStatus = fmt.Sprintf("%-*s", colWidths[3], summaryStatus)
+	summarySkipped := fmt.Sprintf("%-*s", colWidths[2], fmt.Sprintf("%d", totalSkipped))
+	summaryStatus := fmt.Sprintf("%-*s", colWidths[3], fmt.Sprintf("%d repos", stats.ReposProcessed))
 	fmt.Printf(
 		"│ %-*s │ %s │ %s │ %s │\n",
 		repoCol, summaryLabel,
@@ -553,19 +549,18 @@ func displayTableStats(stats *StatsCollector) {
 		summaryStatus,
 	)
 
-	// Print horizontal line (same as sep) to section off PR links
 	fmt.Println(sep)
 
-	// Print PR links block: no vertical lines, just one PR link per line in the bottom section of the table
+	// Print PR links block: label row, then each link as a plain line (no table formatting)
 	if len(stats.CombinedPRLinks) > 0 {
 		prLinksLabel := fmt.Sprintf("%-*s", repoCol, "Links to Combined PRs")
 		fmt.Printf("│ %-*s │\n", repoCol, prLinksLabel)
+		// Print each link as a plain line, not inside the table
 		for _, link := range stats.CombinedPRLinks {
-			fmt.Printf("│ %-*s │\n", repoCol, link)
+			fmt.Println(link)
 		}
 	}
 
-	// Print bottom border
 	fmt.Println(bot)
 }
 
