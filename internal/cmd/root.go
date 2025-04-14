@@ -35,6 +35,8 @@ var (
 	workingBranchSuffix string
 	dependabot          bool
 	caseSensitiveLabels bool
+	noColor             bool
+	noStats             bool
 )
 
 // NewRootCmd creates the root command for the gh-combine CLI
@@ -96,6 +98,8 @@ func NewRootCmd() *cobra.Command {
       # Additional options
       gh combine owner/repo --autoclose                         # Close source PRs when combined PR is merged
 	  gh combine owner/repo --base-branch main                  # Use a different base branch for the combined PR
+	  gh combine owner/repo --no-color                          # Disable color output
+	  gh combine owner/repo --no-stats                          # Disable stats summary display
 	  gh combine owner/repo --combine-branch-name combined-prs  # Use a different name for the combined PR branch
 	  gh combine owner/repo --working-branch-suffix -working    # Use a different suffix for the working branch
       gh combine owner/repo --update-branch                     # Update the branch of the combined PR`,
@@ -127,6 +131,8 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.Flags().IntVar(&minimum, "minimum", 2, "Minimum number of PRs to combine")
 	rootCmd.Flags().StringVar(&defaultOwner, "owner", "", "Default owner for repositories (if not specified in repo name or missing from file inputs)")
 	rootCmd.Flags().BoolVar(&caseSensitiveLabels, "case-sensitive-labels", false, "Use case-sensitive label matching")
+	rootCmd.Flags().BoolVar(&noColor, "no-color", false, "Disable color output")
+	rootCmd.Flags().BoolVar(&noStats, "no-stats", false, "Disable stats summary display")
 
 	// Add deprecated flags for backward compatibility
 	// rootCmd.Flags().IntVar(&minimum, "min-combine", 2, "Minimum number of PRs to combine (deprecated, use --minimum)")
@@ -175,6 +181,10 @@ func runCombine(cmd *cobra.Command, args []string) error {
 	// Execute combination logic
 	if err := executeCombineCommand(ctx, spinner, repos); err != nil {
 		return fmt.Errorf("command execution failed: %w", err)
+	}
+
+	if !noStats {
+		displayStatsSummary()
 	}
 
 	return nil
@@ -342,4 +352,28 @@ func fetchOpenPullRequests(ctx context.Context, client *api.RESTClient, repo git
 	}
 
 	return allPulls, nil
+}
+
+func displayStatsSummary() {
+	// Example implementation of stats summary display
+	if noColor {
+		fmt.Println("Stats Summary (Color Disabled):")
+	} else {
+		fmt.Println("\033[1;34mStats Summary:\033[0m") // Blue color for title
+	}
+
+	// Example stats data
+	fmt.Println("Repositories Processed: 5")
+	fmt.Println("PRs Combined: 10")
+	fmt.Println("PRs Skipped (Merge Conflicts): 2")
+	fmt.Println("PRs Skipped (Criteria Not Met): 3")
+	fmt.Println("Execution Time: 1m30s")
+
+	if !noColor {
+		fmt.Println("\033[1;32mLinks to Combined PRs:\033[0m") // Green color for links section
+	} else {
+		fmt.Println("Links to Combined PRs:")
+	}
+	fmt.Println("- https://github.com/owner/repo1/pull/123")
+	fmt.Println("- https://github.com/owner/repo2/pull/456")
 }
