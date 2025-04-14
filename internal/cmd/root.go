@@ -61,7 +61,7 @@ type RepoStats struct {
 	SkippedCriteria  int
 	CombinedPRLink   string
 	NotEnoughPRs     bool
-	TotalPRs		 int
+	TotalPRs         int
 }
 
 // NewRootCmd creates the root command for the gh-combine CLI
@@ -467,11 +467,10 @@ func displayTableStats(stats *StatsCollector) {
 
 	for _, repoStat := range stats.PerRepoStats {
 		status := "OK"
-		if repoStats.TotalPRs == 0 {
-			status = "NO PRs"
-		}
-		else if repoStat.NotEnoughPRs {
-			status = "NOT ENOUGH PRs"
+		if repoStat.TotalPRs == 0 {
+			status = "NO OPEN PRs"
+		} else if repoStat.NotEnoughPRs {
+			status = "NOT ENOUGH"
 		}
 		fmt.Printf(
 			"│ %-*s │ %*d │ %*d │ %*d │ %-*s │\n",
