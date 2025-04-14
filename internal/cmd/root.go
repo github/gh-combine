@@ -494,7 +494,7 @@ func displayTableStats(stats *StatsCollector) {
 			status = "NOT ENOUGH"
 			statusColor = yellow
 		}
-
+	
 		mcColor := green
 		dnmColor := green
 		if repoStat.SkippedMergeConf > 0 {
@@ -503,16 +503,31 @@ func displayTableStats(stats *StatsCollector) {
 		if repoStat.SkippedCriteria > 0 {
 			dnmColor = yellow
 		}
-		mc := colorize(fmt.Sprintf("%d", repoStat.SkippedMergeConf), mcColor)
-		dnm := colorize(fmt.Sprintf("%d", repoStat.SkippedCriteria), dnmColor)
-		skipped := fmt.Sprintf("%s (MC), %s (DNM)", mc, dnm)
-
+		mcRaw := fmt.Sprintf("%d", repoStat.SkippedMergeConf)
+		dnmRaw := fmt.Sprintf("%d", repoStat.SkippedCriteria)
+		skippedRaw := fmt.Sprintf("%s (MC), %s (DNM)", mcRaw, dnmRaw)
+	
+		// Pad all fields using raw values
+		repoName := truncate(repoStat.RepoName, repoCol)
+		combined := fmt.Sprintf("%*d", colWidths[1], repoStat.CombinedCount)
+		skipped := fmt.Sprintf("%-*s", colWidths[2], skippedRaw)
+		statusPadded := fmt.Sprintf("%-*s", colWidths[3], status)
+	
+		// Now colorize only the numbers and status
+		mcColored := colorize(mcRaw, mcColor)
+		dnmColored := colorize(dnmRaw, dnmColor)
+		skippedColored := skippedRaw
+		skippedColored = strings.Replace(skippedColored, mcRaw, mcColored, 1)
+		skippedColored = strings.Replace(skippedColored, dnmRaw, dnmColored, 1)
+		statusColored := colorize(status, statusColor)
+		statusColored = fmt.Sprintf("%-*s", colWidths[3]+len(statusColored)-len(status), statusColored) // pad after coloring
+	
 		fmt.Printf(
-			"│ %-*s │ %*d │ %-*s │ %-*s │\n",
-			repoCol, truncate(repoStat.RepoName, repoCol),
-			colWidths[1], repoStat.CombinedCount,
-			colWidths[2], skipped,
-			colWidths[3], colorize(status, statusColor),
+			"│ %-*s │ %s │ %s │ %s │\n",
+			repoCol, repoName,
+			combined,
+			skippedColored,
+			statusColored,
 		)
 	}
 	fmt.Println(bot)
