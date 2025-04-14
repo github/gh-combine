@@ -12,7 +12,15 @@ import (
 	"github.com/github/gh-combine/internal/github"
 )
 
-func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClient *api.RESTClient, repo github.Repo, pulls github.Pulls) error {
+// Updated RESTClientInterface to match the method signatures of api.RESTClient
+type RESTClientInterface interface {
+	Post(endpoint string, body io.Reader, response interface{}) error
+	Get(endpoint string, response interface{}) error
+	Delete(endpoint string, response interface{}) error
+	Patch(endpoint string, body io.Reader, response interface{}) error
+}
+
+func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClient RESTClientInterface, repo github.Repo, pulls github.Pulls) error {
 	// Define the combined branch name
 	workingBranchName := combineBranchName + workingBranchSuffix
 
@@ -87,7 +95,7 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 	// Create the combined PR
 	prBody := generatePRBody(combinedPRs, mergeFailedPRs)
 	prTitle := "Combined PRs"
-	err = createPullRequest(ctx, restClient, repo, prTitle, combineBranchName, repoDefaultBranch, prBody)
+	err = createPullRequest(ctx, restClient, repo, prTitle, combineBranchName, repoDefaultBranch, prBody, addLabels, addAssignees)
 	if err != nil {
 		return fmt.Errorf("failed to create combined PR: %w", err)
 	}
@@ -102,7 +110,7 @@ func isMergeConflictError(err error) bool {
 }
 
 // Find the default branch of a repository
-func getDefaultBranch(ctx context.Context, client *api.RESTClient, repo github.Repo) (string, error) {
+func getDefaultBranch(ctx context.Context, client RESTClientInterface, repo github.Repo) (string, error) {
 	var repoInfo struct {
 		DefaultBranch string `json:"default_branch"`
 	}
@@ -115,7 +123,7 @@ func getDefaultBranch(ctx context.Context, client *api.RESTClient, repo github.R
 }
 
 // Get the SHA of a given branch
-func getBranchSHA(ctx context.Context, client *api.RESTClient, repo github.Repo, branch string) (string, error) {
+func getBranchSHA(ctx context.Context, client RESTClientInterface, repo github.Repo, branch string) (string, error) {
 	var ref struct {
 		Object struct {
 			SHA string `json:"sha"`
@@ -148,13 +156,13 @@ func generatePRBody(combinedPRs, mergeFailedPRs []string) string {
 }
 
 // deleteBranch deletes a branch in the repository
-func deleteBranch(ctx context.Context, client *api.RESTClient, repo github.Repo, branch string) error {
+func deleteBranch(ctx context.Context, client RESTClientInterface, repo github.Repo, branch string) error {
 	endpoint := fmt.Sprintf("repos/%s/%s/git/refs/heads/%s", repo.Owner, repo.Repo, branch)
 	return client.Delete(endpoint, nil)
 }
 
 // createBranch creates a new branch in the repository
-func createBranch(ctx context.Context, client *api.RESTClient, repo github.Repo, branch, sha string) error {
+func createBranch(ctx context.Context, client RESTClientInterface, repo github.Repo, branch, sha string) error {
 	endpoint := fmt.Sprintf("repos/%s/%s/git/refs", repo.Owner, repo.Repo)
 	payload := map[string]string{
 		"ref": "refs/heads/" + branch,
@@ -168,7 +176,7 @@ func createBranch(ctx context.Context, client *api.RESTClient, repo github.Repo,
 }
 
 // mergeBranch merges a branch into the base branch
-func mergeBranch(ctx context.Context, client *api.RESTClient, repo github.Repo, base, head string) error {
+func mergeBranch(ctx context.Context, client RESTClientInterface, repo github.Repo, base, head string) error {
 	endpoint := fmt.Sprintf("repos/%s/%s/merges", repo.Owner, repo.Repo)
 	payload := map[string]string{
 		"base": base,
@@ -182,7 +190,7 @@ func mergeBranch(ctx context.Context, client *api.RESTClient, repo github.Repo, 
 }
 
 // updateRef updates a branch to point to the latest commit of another branch
-func updateRef(ctx context.Context, client *api.RESTClient, repo github.Repo, branch, sourceBranch string) error {
+func updateRef(ctx context.Context, client RESTClientInterface, repo github.Repo, branch, sourceBranch string) error {
 	// Get the SHA of the source branch
 	var ref struct {
 		Object struct {
@@ -208,15 +216,25 @@ func updateRef(ctx context.Context, client *api.RESTClient, repo github.Repo, br
 	return client.Patch(endpoint, body, nil)
 }
 
-// createPullRequest creates a new pull request
-func createPullRequest(ctx context.Context, client *api.RESTClient, repo github.Repo, title, head, base, body string) error {
+func createPullRequest(ctx context.Context, client RESTClientInterface, repo github.Repo, title, head, base, body string, labels, assignees []string) error {
 	endpoint := fmt.Sprintf("repos/%s/%s/pulls", repo.Owner, repo.Repo)
-	payload := map[string]string{
-		"title": title,
-		"head":  head,
-		"base":  base,
-		"body":  body,
+	payload := map[string]interface{}{
+		"title":     title,
+		"head":      head,
+		"base":      base,
+		"body":      body,
 	}
+
+	// Add labels if provided
+	if len(labels) > 0 {
+		payload["labels"] = labels
+	}
+
+	// Add assignees if provided
+	if len(assignees) > 0 {
+		payload["assignees"] = assignees
+	}
+
 	requestBody, err := encodePayload(payload)
 	if err != nil {
 		return fmt.Errorf("failed to encode payload: %w", err)
