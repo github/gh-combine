@@ -535,7 +535,7 @@ func displayTableStats(stats *StatsCollector) {
 	// Print summary mini-table with proper padding
 	summaryTop := "╭───────────────┬───────────────┬───────────────────────┬───────────────╮"
 	summaryHead := "│ Repos         │ Combined PRs  │ Skipped               │ Total PRs     │"
-	summarySep :=  "├───────────────┼───────────────┼───────────────────────┼───────────────┤"
+	summarySep := "├───────────────┼───────────────┼───────────────────────┼───────────────┤"
 	skippedRaw := fmt.Sprintf("%d (MC), %d (DNM)", stats.PRsSkippedMergeConflict, stats.PRsSkippedCriteria)
 	summaryRow := fmt.Sprintf(
 		"│ %-13d │ %-13d │ %-21s │ %-13d │",
