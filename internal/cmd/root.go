@@ -533,20 +533,18 @@ func displayTableStats(stats *StatsCollector) {
 	fmt.Println(bot)
 
 	// Print summary mini-table with proper padding
-	summaryTop := "╭───────────────┬──────────────────────┬─────────────┬───────────────────────┬───────────────┬───────────────╮"
-	summaryHead := "│ Repos         │ Total PRs            │ Combined    │ Skipped              │ Time          │ Combined PRs │"
-	summarySep :=  "├───────────────┼──────────────────────┼─────────────┼───────────────────────┼───────────────┼───────────────┤"
+	summaryTop := "╭───────────────┬───────────────┬───────────────────────┬───────────────╮"
+	summaryHead := "│ Repos         │ Combined PRs  │ Skipped              │ Combined PRs │"
+	summarySep :=  "├───────────────┼───────────────┼───────────────────────┼───────────────┤"
 	skippedRaw := fmt.Sprintf("%d (MC), %d (DNM)", stats.PRsSkippedMergeConflict, stats.PRsSkippedCriteria)
 	summaryRow := fmt.Sprintf(
-		"│ %-13d │ %-20d │ %-11d │ %-21s │ %-13s │ %-13d │",
+		"│ %-13d │ %-13d │ %-21s │ %-13d │",
 		stats.ReposProcessed,
-		stats.PRsCombined+stats.PRsSkippedMergeConflict+stats.PRsSkippedCriteria, // total PRs processed (approx)
 		stats.PRsCombined,
 		skippedRaw,
-		stats.EndTime.Sub(stats.StartTime).Round(time.Second),
 		len(stats.CombinedPRLinks),
 	)
-	summaryBot := "╰───────────────┴──────────────────────┴─────────────┴───────────────────────┴───────────────┴───────────────╯"
+	summaryBot := "╰───────────────┴───────────────┴───────────────────────┴───────────────╯"
 	fmt.Println()
 	fmt.Println(summaryTop)
 	fmt.Println(summaryHead)
