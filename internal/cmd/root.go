@@ -401,13 +401,6 @@ func fetchOpenPullRequests(ctx context.Context, client *api.RESTClient, repo git
 	return allPulls, nil
 }
 
-// CombinePRsWithStats wraps CombinePRs to collect stats and return combined/skipped PRs and the combined PR link
-func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, restClient RESTClientInterface, repo github.Repo, pulls github.Pulls) (combined []string, mergeConflicts []string, combinedPRLink string, err error) {
-	// ...existing code for CombinePRs...
-	// This is a stub. You should move the logic from CombinePRs here and update it to collect combined, mergeConflicts, and the PR link.
-	return nil, nil, "", CombinePRs(ctx, graphQlClient, restClient, repo, pulls)
-}
-
 func displayStatsSummary(stats *StatsCollector) {
 	elapsed := stats.EndTime.Sub(stats.StartTime)
 	if noColor {
