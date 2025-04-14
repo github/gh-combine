@@ -474,7 +474,7 @@ func displayTableStats(stats *StatsCollector) {
 		return bold + color + s + reset
 	}
 
-	head := fmt.Sprintf("│ %-*s │ %-*s │ %-*s │ %-*s │",
+	head := fmt.Sprintf("│ %-*s │ %*s │ %-*s │ %-*s │",
 		repoCol, colorizeBold("Repository", blue),
 		colWidths[1], colorizeBold("PRs Combined", blue),
 		colWidths[2], colorizeBold("Skipped", blue),
