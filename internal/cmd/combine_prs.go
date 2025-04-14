@@ -33,14 +33,14 @@ func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, 
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to get SHA of main branch: %w", err)
 	}
-// Delete any pre-existing working branch
+	// Delete any pre-existing working branch
 
-// Delete any pre-existing working branch
+	// Delete any pre-existing working branch
 	err = deleteBranch(ctx, restClient, repo, workingBranchName)
 	if err != nil {
 		Logger.Debug("Working branch not found, continuing", "branch", workingBranchName)
 
-	// Delete any pre-existing combined branch
+		// Delete any pre-existing combined branch
 	}
 
 	// Delete any pre-existing combined branch

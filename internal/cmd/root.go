@@ -43,14 +43,14 @@ var (
 
 // StatsCollector tracks stats for the CLI run
 type StatsCollector struct {
-	ReposProcessed int
-	PRsCombined   int
+	ReposProcessed          int
+	PRsCombined             int
 	PRsSkippedMergeConflict int
-	PRsSkippedCriteria int
-	PerRepoStats  map[string]*RepoStats
-	CombinedPRLinks []string
-	StartTime     time.Time
-	EndTime       time.Time
+	PRsSkippedCriteria      int
+	PerRepoStats            map[string]*RepoStats
+	CombinedPRLinks         []string
+	StartTime               time.Time
+	EndTime                 time.Time
 }
 
 type RepoStats struct {
@@ -203,7 +203,7 @@ func runCombine(cmd *cobra.Command, args []string) error {
 
 	stats := &StatsCollector{
 		PerRepoStats: make(map[string]*RepoStats),
-		StartTime: time.Now(),
+		StartTime:    time.Now(),
 	}
 
 	// Execute combination logic
