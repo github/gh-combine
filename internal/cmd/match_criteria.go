@@ -20,7 +20,7 @@ func PrMatchesCriteria(branch string, prLabels []string) bool {
 	}
 
 	// Check label criteria if any are specified
-	if !labelsMatch(prLabels, ignoreLabels, selectLabels) {
+	if !labelsMatch(prLabels, ignoreLabels, selectLabels, caseSensitiveLabels) {
 		return false
 	}
 
@@ -72,13 +72,14 @@ func branchMatchesCriteria(branch string) bool {
 	return true
 }
 
-func labelsMatch(prLabels, ignoreLabels, selectLabels []string) bool {
+func labelsMatch(prLabels, ignoreLabels, selectLabels []string, caseSensitive bool) bool {
 	// If no ignoreLabels or selectLabels are specified, all labels pass this check
 	if len(ignoreLabels) == 0 && len(selectLabels) == 0 {
 		return true
 	}
 
-	if !caseSensitiveLabels {
+	// Normalize labels for case-insensitive matching if caseSensitive is false
+	if !caseSensitive {
 		prLabels = common.NormalizeArray(prLabels)
 		ignoreLabels = common.NormalizeArray(ignoreLabels)
 		selectLabels = common.NormalizeArray(selectLabels)
