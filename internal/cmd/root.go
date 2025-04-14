@@ -538,15 +538,12 @@ func displayTableStats(stats *StatsCollector) {
 	// Print summary row in table style
 	summaryLabel := fmt.Sprintf("%-*s", repoCol, "Summary")
 	summaryCombined := fmt.Sprintf("%*d", colWidths[1], stats.PRsCombined)
-	summarySkipped := fmt.Sprintf("Skipped (MC): %d, (DNM): %d", stats.PRsSkippedMergeConflict, stats.PRsSkippedCriteria)
-	if len(summarySkipped) > colWidths[2] {
-		summarySkipped = summarySkipped[:colWidths[2]-1] + "…"
-	}
+	// Skipped: just a single total value number
+	totalSkipped := stats.PRsSkippedMergeConflict + stats.PRsSkippedCriteria
+	summarySkipped := fmt.Sprintf("%d", totalSkipped)
 	summarySkipped = fmt.Sprintf("%-*s", colWidths[2], summarySkipped)
-	summaryStatus := fmt.Sprintf("Processed: %d | Time: %s", stats.ReposProcessed, stats.EndTime.Sub(stats.StartTime).Round(time.Second))
-	if len(summaryStatus) > colWidths[3] {
-		summaryStatus = summaryStatus[:colWidths[3]-1] + "…"
-	}
+	// Status: count like "3 repos"
+	summaryStatus := fmt.Sprintf("%d repos", stats.ReposProcessed)
 	summaryStatus = fmt.Sprintf("%-*s", colWidths[3], summaryStatus)
 	fmt.Printf(
 		"│ %-*s │ %s │ %s │ %s │\n",
@@ -559,19 +556,12 @@ func displayTableStats(stats *StatsCollector) {
 	// Print horizontal line (same as sep) to section off PR links
 	fmt.Println(sep)
 
-	// Print PR links block in table style
+	// Print PR links block: no vertical lines, just one PR link per line in the bottom section of the table
 	if len(stats.CombinedPRLinks) > 0 {
 		prLinksLabel := fmt.Sprintf("%-*s", repoCol, "Links to Combined PRs")
-		for i, link := range stats.CombinedPRLinks {
-			prLink := link
-			if len(prLink) > colWidths[1]+colWidths[2]+colWidths[3]+6 {
-				prLink = prLink[:colWidths[1]+colWidths[2]+colWidths[3]+3] + "…"
-			}
-			if i == 0 {
-				fmt.Printf("│ %-*s │ %-*s │\n", repoCol, prLinksLabel, colWidths[1]+colWidths[2]+colWidths[3]+6, prLink)
-			} else {
-				fmt.Printf("│ %-*s │ %-*s │\n", repoCol, "", colWidths[1]+colWidths[2]+colWidths[3]+6, prLink)
-			}
+		fmt.Printf("│ %-*s │\n", repoCol, prLinksLabel)
+		for _, link := range stats.CombinedPRLinks {
+			fmt.Printf("│ %-*s │\n", repoCol, link)
 		}
 	}
 
