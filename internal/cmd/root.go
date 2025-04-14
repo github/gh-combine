@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cli/go-gh/v2/pkg/api"
@@ -38,6 +40,7 @@ var (
 	caseSensitiveLabels bool
 	noColor             bool
 	noStats             bool
+	outputFormat        string
 )
 
 // StatsCollector tracks stats for the CLI run
@@ -59,6 +62,7 @@ type RepoStats struct {
 	SkippedCriteria  int
 	CombinedPRLink   string
 	NotEnoughPRs     bool
+	TotalPRs         int
 }
 
 // NewRootCmd creates the root command for the gh-combine CLI
@@ -155,6 +159,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.Flags().BoolVar(&caseSensitiveLabels, "case-sensitive-labels", false, "Use case-sensitive label matching")
 	rootCmd.Flags().BoolVar(&noColor, "no-color", false, "Disable color output")
 	rootCmd.Flags().BoolVar(&noStats, "no-stats", false, "Disable stats summary display")
+	rootCmd.Flags().StringVar(&outputFormat, "output", "table", "Output format: table, plain, or json")
 
 	// Add deprecated flags for backward compatibility
 	// rootCmd.Flags().IntVar(&minimum, "min-combine", 2, "Minimum number of PRs to combine (deprecated, use --minimum)")
@@ -213,7 +218,7 @@ func runCombine(cmd *cobra.Command, args []string) error {
 
 	if !noStats {
 		spinner.Stop()
-		displayStatsSummary(stats)
+		displayStatsSummary(stats, outputFormat)
 	}
 
 	return nil
@@ -286,6 +291,8 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 	if err != nil {
 		return fmt.Errorf("failed to fetch open pull requests: %w", err)
 	}
+
+	repoStats.TotalPRs = len(pulls)
 
 	// Check for cancellation again
 	select {
@@ -400,24 +407,214 @@ func fetchOpenPullRequests(ctx context.Context, client *api.RESTClient, repo git
 	return allPulls, nil
 }
 
-func displayStatsSummary(stats *StatsCollector) {
-	elapsed := stats.EndTime.Sub(stats.StartTime)
-	if noColor {
-		fmt.Println("Stats Summary (Color Disabled):")
-	} else {
-		fmt.Println("\033[1;34mStats Summary:\033[0m")
+func displayStatsSummary(stats *StatsCollector, outputFormat string) {
+	switch outputFormat {
+	case "table":
+		displayTableStats(stats)
+	case "json":
+		displayJSONStats(stats)
+	case "plain":
+		fallthrough
+	default:
+		displayPlainStats(stats)
 	}
+}
+
+func displayTableStats(stats *StatsCollector) {
+	// ANSI color helpers
+	green := "\033[32m"
+	yellow := "\033[33m"
+	reset := "\033[0m"
+	colorize := func(s, color string) string {
+		if noColor {
+			return s
+		}
+		return color + s + reset
+	}
+
+	// Find max repo name length
+	maxRepoLen := len("Repository")
+	for _, repoStat := range stats.PerRepoStats {
+		if l := len(repoStat.RepoName); l > maxRepoLen {
+			maxRepoLen = l
+		}
+	}
+	if maxRepoLen > 40 {
+		maxRepoLen = 40 // hard cap for very long repo names
+	}
+
+	repoCol := maxRepoLen
+	colWidths := []int{repoCol, 14, 20, 12}
+
+	// Table border helpers
+	top := "╭"
+	sep := "├"
+	bot := "╰"
+	for i, w := range colWidths {
+		top += pad("─", w+2) // +2 for padding spaces
+		sep += pad("─", w+2)
+		bot += pad("─", w+2)
+		if i < len(colWidths)-1 {
+			top += "┬"
+			sep += "┼"
+			bot += "┴"
+		} else {
+			top += "╮"
+			sep += "┤"
+			bot += "╯"
+		}
+	}
+
+	headRepo := fmt.Sprintf("%-*s", repoCol, "Repository")
+	headCombined := fmt.Sprintf("%*s", colWidths[1], "PRs Combined")
+	headSkipped := fmt.Sprintf("%-*s", colWidths[2], "Skipped")
+	headStatus := fmt.Sprintf("%-*s", colWidths[3], "Status")
+	head := fmt.Sprintf(
+		"│ %-*s │ %s │ %s │ %s │",
+		repoCol, headRepo,
+		headCombined,
+		headSkipped,
+		headStatus,
+	)
+
+	fmt.Println(top)
+	fmt.Println(head)
+	fmt.Println(sep)
+
+	for _, repoStat := range stats.PerRepoStats {
+		status := "OK"
+		statusColor := green
+		if repoStat.TotalPRs == 0 {
+			status = "NO OPEN PRs"
+			statusColor = green
+		} else if repoStat.NotEnoughPRs {
+			status = "NOT ENOUGH"
+			statusColor = yellow
+		}
+
+		mcColor := green
+		dnmColor := green
+		if repoStat.SkippedMergeConf > 0 {
+			mcColor = yellow
+		}
+		if repoStat.SkippedCriteria > 0 {
+			dnmColor = yellow
+		}
+		mcRaw := fmt.Sprintf("%d", repoStat.SkippedMergeConf)
+		dnmRaw := fmt.Sprintf("%d", repoStat.SkippedCriteria)
+		skippedRaw := fmt.Sprintf("%s (MC), %s (DNM)", mcRaw, dnmRaw)
+
+		repoName := truncate(repoStat.RepoName, repoCol)
+		combined := fmt.Sprintf("%*d", colWidths[1], repoStat.CombinedCount)
+		// Pad skippedRaw to colWidths[2] before coloring
+		skippedPadded := fmt.Sprintf("%-*s", colWidths[2], skippedRaw)
+		// Colorize only the numbers in the padded string
+		mcIdx := strings.Index(skippedPadded, mcRaw)
+		dnmIdx := strings.Index(skippedPadded, dnmRaw)
+		skippedColored := skippedPadded
+		if mcIdx != -1 {
+			skippedColored = skippedColored[:mcIdx] + colorize(mcRaw, mcColor) + skippedColored[mcIdx+len(mcRaw):]
+		}
+		if dnmIdx != -1 {
+			dnmIdx = strings.Index(skippedColored, dnmRaw) // recalc in case mcRaw and dnmRaw overlap
+			skippedColored = skippedColored[:dnmIdx] + colorize(dnmRaw, dnmColor) + skippedColored[dnmIdx+len(dnmRaw):]
+		}
+		statusColored := colorize(status, statusColor)
+		statusColored = fmt.Sprintf("%-*s", colWidths[3]+len(statusColored)-len(status), statusColored)
+
+		fmt.Printf(
+			"│ %-*s │ %s │ %s │ %s │\n",
+			repoCol, repoName,
+			combined,
+			skippedColored,
+			statusColored,
+		)
+	}
+	fmt.Println(bot)
+
+	// Print summary mini-table with proper padding
+	summaryTop := "╭───────────────┬───────────────┬───────────────────────┬───────────────╮"
+	summaryHead := "│ Repos         │ Combined PRs  │ Skipped               │ Total PRs     │"
+	summarySep := "├───────────────┼───────────────┼───────────────────────┼───────────────┤"
+	skippedRaw := fmt.Sprintf("%d (MC), %d (DNM)", stats.PRsSkippedMergeConflict, stats.PRsSkippedCriteria)
+	summaryRow := fmt.Sprintf(
+		"│ %-13d │ %-13d │ %-21s │ %-13d │",
+		stats.ReposProcessed,
+		stats.PRsCombined,
+		skippedRaw,
+		len(stats.CombinedPRLinks),
+	)
+	summaryBot := "╰───────────────┴───────────────┴───────────────────────┴───────────────╯"
+	fmt.Println()
+	fmt.Println(summaryTop)
+	fmt.Println(summaryHead)
+	fmt.Println(summarySep)
+	fmt.Println(summaryRow)
+	fmt.Println(summaryBot)
+
+	// Print PR links block (blue color)
+	if len(stats.CombinedPRLinks) > 0 {
+		blue := "\033[34m"
+		reset := "\033[0m"
+		fmt.Println("\nLinks to Combined PRs:")
+		for _, link := range stats.CombinedPRLinks {
+			if noColor {
+				fmt.Println("-", link)
+			} else {
+				fmt.Printf("- %s%s%s\n", blue, link, reset)
+			}
+		}
+	}
+	fmt.Println()
+}
+
+// pad returns a string of n runes of s (usually "─")
+func pad(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	out := ""
+	for i := 0; i < n; i++ {
+		out += s
+	}
+	return out
+}
+
+// truncate shortens a string to maxLen runes, adding … if truncated
+func truncate(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	if maxLen <= 1 {
+		return string(runes[:maxLen])
+	}
+	return string(runes[:maxLen-1]) + "…"
+}
+
+func displayJSONStats(stats *StatsCollector) {
+	output := map[string]interface{}{
+		"reposProcessed":          stats.ReposProcessed,
+		"prsCombined":             stats.PRsCombined,
+		"prsSkippedMergeConflict": stats.PRsSkippedMergeConflict,
+		"prsSkippedCriteria":      stats.PRsSkippedCriteria,
+		"executionTime":           stats.EndTime.Sub(stats.StartTime).String(),
+		"combinedPRLinks":         stats.CombinedPRLinks,
+		"perRepoStats":            stats.PerRepoStats,
+	}
+	jsonData, _ := json.MarshalIndent(output, "", "  ")
+	fmt.Println(string(jsonData))
+}
+
+func displayPlainStats(stats *StatsCollector) {
+	elapsed := stats.EndTime.Sub(stats.StartTime)
 	fmt.Printf("Repositories Processed: %d\n", stats.ReposProcessed)
 	fmt.Printf("PRs Combined: %d\n", stats.PRsCombined)
 	fmt.Printf("PRs Skipped (Merge Conflicts): %d\n", stats.PRsSkippedMergeConflict)
-	fmt.Printf("PRs Skipped (Criteria Not Met): %d\n", stats.PRsSkippedCriteria)
+	fmt.Printf("PRs Skipped (Did Not Match): %d\n", stats.PRsSkippedCriteria)
 	fmt.Printf("Execution Time: %s\n", elapsed.Round(time.Second))
 
-	if !noColor {
-		fmt.Println("\033[1;32mLinks to Combined PRs:\033[0m")
-	} else {
-		fmt.Println("Links to Combined PRs:")
-	}
+	fmt.Println("Links to Combined PRs:")
 	for _, link := range stats.CombinedPRLinks {
 		fmt.Println("-", link)
 	}
@@ -431,7 +628,7 @@ func displayStatsSummary(stats *StatsCollector) {
 		}
 		fmt.Printf("    Combined: %d\n", repoStat.CombinedCount)
 		fmt.Printf("    Skipped (Merge Conflicts): %d\n", repoStat.SkippedMergeConf)
-		fmt.Printf("    Skipped (Criteria): %d\n", repoStat.SkippedCriteria)
+		fmt.Printf("    Skipped (Did Not Match): %d\n", repoStat.SkippedCriteria)
 		if repoStat.CombinedPRLink != "" {
 			fmt.Printf("    Combined PR: %s\n", repoStat.CombinedPRLink)
 		}
