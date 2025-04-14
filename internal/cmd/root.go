@@ -454,31 +454,10 @@ func displayTableStats(stats *StatsCollector) {
 		}
 	}
 
-	// ANSI color helpers
-	bold := "\033[1m"
-	reset := "\033[0m"
-	blue := "\033[34m"
-	green := "\033[32m"
-	yellow := "\033[33m"
-
-	colorize := func(s, color string) string {
-		if noColor {
-			return s
-		}
-		return color + s + reset
-	}
-	colorizeBold := func(s, color string) string {
-		if noColor {
-			return s
-		}
-		return bold + color + s + reset
-	}
-
-	// Build header row with correct alignment and color, matching body formatting
-	headRepo := fmt.Sprintf("%-*s", repoCol, colorizeBold("Repository", blue))
-	headCombined := fmt.Sprintf("%*s", colWidths[1], colorizeBold("PRs Combined", blue))
-	headSkipped := fmt.Sprintf("%-*s", colWidths[2], colorizeBold("Skipped", blue))
-	headStatus := fmt.Sprintf("%-*s", colWidths[3], colorizeBold("Status", blue))
+	headRepo := fmt.Sprintf("%-*s", repoCol, "Repository")
+	headCombined := fmt.Sprintf("%*s", colWidths[1], "PRs Combined")
+	headSkipped := fmt.Sprintf("%-*s", colWidths[2], "Skipped")
+	headStatus := fmt.Sprintf("%-*s", colWidths[3], "Status")
 	head := fmt.Sprintf(
 		"│ %-*s │ %s │ %s │ %s │",
 		repoCol, headRepo,
