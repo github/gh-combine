@@ -417,10 +417,30 @@ func displayStatsSummary(stats *StatsCollector, outputFormat string) {
 }
 
 func displayTableStats(stats *StatsCollector) {
-	top := "╭──────────────────────────────┬──────────────┬──────────────┬──────────────┬──────────────┬──────────────────────────────────────────────────────────────╮"
-	head := "│ Repository                   │ Combined PRs │ Skipped (MC) │ Skipped (CR) │   Status     │ Combined PR Link                                             │"
-	sep :=  "├──────────────────────────────┼──────────────┼──────────────┼──────────────┼──────────────┼──────────────────────────────────────────────────────────────┤"
-	bot := "╰──────────────────────────────┴──────────────┴──────────────┴──────────────┴──────────────┴──────────────────────────────────────────────────────────────╯"
+	// Find max repo name length
+	maxRepoLen := len("Repository")
+	for _, repoStat := range stats.PerRepoStats {
+		if l := len(repoStat.RepoName); l > maxRepoLen {
+			maxRepoLen = l
+		}
+	}
+	if maxRepoLen > 40 {
+		maxRepoLen = 40 // hard cap for very long repo names
+	}
+
+	repoCol := maxRepoLen
+	colWidths := []int{repoCol, 14, 14, 14, 12}
+	// Table border helpers
+	top := "╭" + pad("─", colWidths[0]) + "┬" + pad("─", colWidths[1]) + "┬" + pad("─", colWidths[2]) + "┬" + pad("─", colWidths[3]) + "┬" + pad("─", colWidths[4]) + "╮"
+	head := fmt.Sprintf("│ %-*s │ %*s │ %*s │ %*s │ %-*s │",
+		repoCol, "Repository",
+		colWidths[1], "Combined PRs",
+		colWidths[2], "Skipped (MC)",
+		colWidths[3], "Skipped (CR)",
+		colWidths[4], "Status",
+	)
+	sep := "├" + pad("─", colWidths[0]) + "┼" + pad("─", colWidths[1]) + "┼" + pad("─", colWidths[2]) + "┼" + pad("─", colWidths[3]) + "┼" + pad("─", colWidths[4]) + "┤"
+	bot := "╰" + pad("─", colWidths[0]) + "┴" + pad("─", colWidths[1]) + "┴" + pad("─", colWidths[2]) + "┴" + pad("─", colWidths[3]) + "┴" + pad("─", colWidths[4]) + "╯"
 
 	fmt.Println(top)
 	fmt.Println(head)
@@ -433,18 +453,13 @@ func displayTableStats(stats *StatsCollector) {
 		} else if repoStat.CombinedCount == 0 && repoStat.SkippedMergeConf == 0 && repoStat.SkippedCriteria == 0 {
 			status = "NO PRs"
 		}
-		link := repoStat.CombinedPRLink
-		if link == "" {
-			link = "-"
-		}
 		fmt.Printf(
-			"│ %-28s │ %12d │ %12d │ %12d │ %-12s │ %-54s │\n",
-			repoStat.RepoName,
-			repoStat.CombinedCount,
-			repoStat.SkippedMergeConf,
-			repoStat.SkippedCriteria,
-			status,
-			link,
+			"│ %-*s │ %*d │ %*d │ %*d │ %-*s │\n",
+			repoCol, truncate(repoStat.RepoName, repoCol),
+			colWidths[1], repoStat.CombinedCount,
+			colWidths[2], repoStat.SkippedMergeConf,
+			colWidths[3], repoStat.SkippedCriteria,
+			colWidths[4], status,
 		)
 	}
 	fmt.Println(bot)
@@ -458,12 +473,37 @@ func displayTableStats(stats *StatsCollector) {
 		stats.EndTime.Sub(stats.StartTime).Round(time.Second),
 	)
 
+	// Print PR links block
 	if len(stats.CombinedPRLinks) > 0 {
 		fmt.Println("\nLinks to Combined PRs:")
 		for _, link := range stats.CombinedPRLinks {
 			fmt.Println("-", link)
 		}
 	}
+}
+
+// pad returns a string of n runes of s (usually "─")
+func pad(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	out := ""
+	for i := 0; i < n; i++ {
+		out += s
+	}
+	return out
+}
+
+// truncate shortens a string to maxLen runes, adding … if truncated
+func truncate(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	if maxLen <= 1 {
+		return string(runes[:maxLen])
+	}
+	return string(runes[:maxLen-1]) + "…"
 }
 
 func displayJSONStats(stats *StatsCollector) {
