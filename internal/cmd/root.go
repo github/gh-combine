@@ -532,20 +532,37 @@ func displayTableStats(stats *StatsCollector) {
 	}
 	fmt.Println(bot)
 
-	// Print summary row
-	fmt.Printf("\nSummary: Processed %d repos | Combined: %d | Skipped (MC): %d | Skipped (DNM): %d | Time: %s\n",
+	// Print summary mini-table
+	summaryTop := "╭───────────────┬───────────┬──────────────┬──────────────┬──────────────╮"
+	summaryHead := "│ Repos       │ Combined  │ Skipped (MC) │ Skipped (DNM)│   Time       │"
+	summarySep :=  "├──────────────┼───────────┼──────────────┼──────────────┼──────────────┤"
+	summaryRow := fmt.Sprintf(
+		"│ %-11d │ %-9d │ %-12d │ %-12d │ %-12s │",
 		stats.ReposProcessed,
 		stats.PRsCombined,
 		stats.PRsSkippedMergeConflict,
 		stats.PRsSkippedCriteria,
 		stats.EndTime.Sub(stats.StartTime).Round(time.Second),
 	)
+	summaryBot := "╰──────────────┴───────────┴──────────────┴──────────────┴──────────────╯"
+	fmt.Println()
+	fmt.Println(summaryTop)
+	fmt.Println(summaryHead)
+	fmt.Println(summarySep)
+	fmt.Println(summaryRow)
+	fmt.Println(summaryBot)
 
-	// Print PR links block
+	// Print PR links block (blue color)
 	if len(stats.CombinedPRLinks) > 0 {
+		blue := "\033[34m"
+		reset := "\033[0m"
 		fmt.Println("\nLinks to Combined PRs:")
 		for _, link := range stats.CombinedPRLinks {
-			fmt.Println("-", link)
+			if noColor {
+				fmt.Println("-", link)
+			} else {
+				fmt.Printf("- %s%s%s\n", blue, link, reset)
+			}
 		}
 	}
 }
