@@ -145,12 +145,6 @@ func createPullRequestWithNumber(ctx context.Context, client RESTClientInterface
 	return prResponse.Number, nil
 }
 
-// Keep CombinePRs for backward compatibility
-func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClient RESTClientInterface, repo github.Repo, pulls github.Pulls) error {
-	_, _, _, err := CombinePRsWithStats(ctx, graphQlClient, restClient, repo, pulls)
-	return err
-}
-
 // isMergeConflictError checks if the error is a 409 Merge Conflict
 func isMergeConflictError(err error) bool {
 	// Check if the error message contains "HTTP 409: Merge conflict"
