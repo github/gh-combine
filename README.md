@@ -150,6 +150,14 @@ gh combine owner/repo --update-branch
 gh combine owner/repo --no-stats
 ```
 
+### Change the Type of Stats Output
+
+```bash
+gh combine owner/repo --output table # default format
+gh combine owner/repo --output json
+gh combine owner/repo --output plain
+```
+
 ### Disable Color
 
 ```bash

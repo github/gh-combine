@@ -126,6 +126,9 @@ func NewRootCmd() *cobra.Command {
 	  gh combine owner/repo --base-branch main                  # Use a different base branch for the combined PR
 	  gh combine owner/repo --no-color                          # Disable color output
 	  gh combine owner/repo --no-stats                          # Disable stats summary display
+	  gh combine owner/repo --output json                       # Output stats in JSON format
+	  gh combine owner/repo --output plain                      # Output stats in plain text format
+	  gh combine owner/repo --output table                      # Output stats in table format (default)
 	  gh combine owner/repo --combine-branch-name combined-prs  # Use a different name for the combined PR branch
 	  gh combine owner/repo --working-branch-suffix -working    # Use a different suffix for the working branch
       gh combine owner/repo --update-branch                     # Update the branch of the combined PR`,
