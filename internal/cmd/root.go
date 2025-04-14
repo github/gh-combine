@@ -474,27 +474,17 @@ func displayTableStats(stats *StatsCollector) {
 		return bold + color + s + reset
 	}
 
-	head := fmt.Sprintf("│ %-*s │ %*s │ %-*s │ %-*s │",
-		repoCol, colorizeBold("Repository", blue),
-		colWidths[1], colorizeBold("PRs Combined", blue),
-		colWidths[2], colorizeBold("Skipped", blue),
-		colWidths[3], colorizeBold("Status", blue),
-	)
-	// Fix header pipe padding: ensure each header cell is padded to match the body
-	headRunes := []rune(head)
-	// Replace single spaces before and after pipes with nothing, then add a single space after each pipe
-	headFixed := ""
-	for i := 0; i < len(headRunes); i++ {
-		headFixed += string(headRunes[i])
-		if headRunes[i] == '│' && i+1 < len(headRunes) && headRunes[i+1] != ' ' {
-			headFixed += " "
-		}
+	// Build header row with correct alignment and color, matching body formatting
+	headCells := []string{
+		fmt.Sprintf("%-*s", repoCol, colorizeBold("Repository", blue)),
+		fmt.Sprintf("%*s", colWidths[1], colorizeBold("PRs Combined", blue)),
+		fmt.Sprintf("%-*s", colWidths[2], colorizeBold("Skipped", blue)),
+		fmt.Sprintf("%-*s", colWidths[3], colorizeBold("Status", blue)),
 	}
-	// Remove any double spaces
-	headFixed = strings.ReplaceAll(headFixed, "  ", " ")
+	head := "│ " + strings.Join(headCells, " │ ") + " │"
 
 	fmt.Println(top)
-	fmt.Println(headFixed)
+	fmt.Println(head)
 	fmt.Println(sep)
 
 	for _, repoStat := range stats.PerRepoStats {
