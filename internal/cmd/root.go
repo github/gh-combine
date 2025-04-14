@@ -532,19 +532,19 @@ func displayTableStats(stats *StatsCollector) {
 	}
 	fmt.Println(bot)
 
-	// Print summary mini-table
-	summaryTop := "╭───────────────┬───────────┬──────────────┬──────────────┬──────────────╮"
-	summaryHead := "│ Repos       │ Combined  │ Skipped (MC) │ Skipped (DNM)│   Time       │"
-	summarySep :=  "├──────────────┼───────────┼──────────────┼──────────────┼──────────────┤"
+	// Print summary mini-table with proper padding
+	summaryTop := "╭───────────────┬─────────────┬───────────────┬───────────────┬───────────────╮"
+	summaryHead := "│ Repos         │ Combined    │ Skipped (MC)  │ Skipped (DNM) │ Time          │"
+	summarySep :=  "├───────────────┼─────────────┼───────────────┼───────────────┼───────────────┤"
 	summaryRow := fmt.Sprintf(
-		"│ %-11d │ %-9d │ %-12d │ %-12d │ %-12s │",
+		"│ %-13d │ %-11d │ %-13d │ %-13d │ %-13s │",
 		stats.ReposProcessed,
 		stats.PRsCombined,
 		stats.PRsSkippedMergeConflict,
 		stats.PRsSkippedCriteria,
 		stats.EndTime.Sub(stats.StartTime).Round(time.Second),
 	)
-	summaryBot := "╰──────────────┴───────────┴──────────────┴──────────────┴──────────────╯"
+	summaryBot := "╰───────────────┴─────────────┴───────────────┴───────────────┴───────────────╯"
 	fmt.Println()
 	fmt.Println(summaryTop)
 	fmt.Println(summaryHead)
