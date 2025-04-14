@@ -480,9 +480,21 @@ func displayTableStats(stats *StatsCollector) {
 		colWidths[2], colorizeBold("Skipped", blue),
 		colWidths[3], colorizeBold("Status", blue),
 	)
+	// Fix header pipe padding: ensure each header cell is padded to match the body
+	headRunes := []rune(head)
+	// Replace single spaces before and after pipes with nothing, then add a single space after each pipe
+	headFixed := ""
+	for i := 0; i < len(headRunes); i++ {
+		headFixed += string(headRunes[i])
+		if headRunes[i] == '│' && i+1 < len(headRunes) && headRunes[i+1] != ' ' {
+			headFixed += " "
+		}
+	}
+	// Remove any double spaces
+	headFixed = strings.ReplaceAll(headFixed, "  ", " ")
 
 	fmt.Println(top)
-	fmt.Println(head)
+	fmt.Println(headFixed)
 	fmt.Println(sep)
 
 	for _, repoStat := range stats.PerRepoStats {
