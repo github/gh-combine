@@ -467,11 +467,15 @@ func displayTableStats(stats *StatsCollector) {
 	for _, repoStat := range stats.PerRepoStats {
 		status := "OK"
 		if repoStat.TotalPRs == 0 {
-			status = "NO OPEN PRs"
+			status = "NO OPEN PRs" // there are no open PRs in the repo
 		} else if repoStat.NotEnoughPRs {
-			status = "NOT ENOUGH"
+			status = "NOT ENOUGH" // not enough PRs matched criteria to combine
 		}
-		skipped := fmt.Sprintf("%d (MC), %d (CR)", repoStat.SkippedMergeConf, repoStat.SkippedCriteria)
+
+		// MC = Merge Conflict
+		// DNM = Did Not Match (filters or other criteria)
+		skipped := fmt.Sprintf("%d (MC), %d (DNM)", repoStat.SkippedMergeConf, repoStat.SkippedCriteria)
+
 		fmt.Printf(
 			"│ %-*s │ %*d │ %-*s │ %-*s │\n",
 			repoCol, truncate(repoStat.RepoName, repoCol),
@@ -483,7 +487,7 @@ func displayTableStats(stats *StatsCollector) {
 	fmt.Println(bot)
 
 	// Print summary row
-	fmt.Printf("\nSummary: Processed %d repos | Combined: %d | Skipped (MC): %d | Skipped (CR): %d | Time: %s\n",
+	fmt.Printf("\nSummary: Processed %d repos | Combined: %d | Skipped (MC): %d | Skipped (DNM): %d | Time: %s\n",
 		stats.ReposProcessed,
 		stats.PRsCombined,
 		stats.PRsSkippedMergeConflict,
