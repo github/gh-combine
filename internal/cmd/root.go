@@ -532,22 +532,51 @@ func displayTableStats(stats *StatsCollector) {
 	}
 	fmt.Println(bot)
 
-	// Print summary row
-	fmt.Printf("\nSummary: Processed %d repos | Combined: %d | Skipped (MC): %d | Skipped (DNM): %d | Time: %s\n",
-		stats.ReposProcessed,
-		stats.PRsCombined,
-		stats.PRsSkippedMergeConflict,
-		stats.PRsSkippedCriteria,
-		stats.EndTime.Sub(stats.StartTime).Round(time.Second),
+	// Print horizontal line (same as sep) to section off summary
+	fmt.Println(sep)
+
+	// Print summary row in table style
+	summaryLabel := fmt.Sprintf("%-*s", repoCol, "Summary")
+	summaryCombined := fmt.Sprintf("%*d", colWidths[1], stats.PRsCombined)
+	summarySkipped := fmt.Sprintf("Skipped (MC): %d, (DNM): %d", stats.PRsSkippedMergeConflict, stats.PRsSkippedCriteria)
+	if len(summarySkipped) > colWidths[2] {
+		summarySkipped = summarySkipped[:colWidths[2]-1] + "…"
+	}
+	summarySkipped = fmt.Sprintf("%-*s", colWidths[2], summarySkipped)
+	summaryStatus := fmt.Sprintf("Processed: %d | Time: %s", stats.ReposProcessed, stats.EndTime.Sub(stats.StartTime).Round(time.Second))
+	if len(summaryStatus) > colWidths[3] {
+		summaryStatus = summaryStatus[:colWidths[3]-1] + "…"
+	}
+	summaryStatus = fmt.Sprintf("%-*s", colWidths[3], summaryStatus)
+	fmt.Printf(
+		"│ %-*s │ %s │ %s │ %s │\n",
+		repoCol, summaryLabel,
+		summaryCombined,
+		summarySkipped,
+		summaryStatus,
 	)
 
-	// Print PR links block
+	// Print horizontal line (same as sep) to section off PR links
+	fmt.Println(sep)
+
+	// Print PR links block in table style
 	if len(stats.CombinedPRLinks) > 0 {
-		fmt.Println("\nLinks to Combined PRs:")
-		for _, link := range stats.CombinedPRLinks {
-			fmt.Println("-", link)
+		prLinksLabel := fmt.Sprintf("%-*s", repoCol, "Links to Combined PRs")
+		for i, link := range stats.CombinedPRLinks {
+			prLink := link
+			if len(prLink) > colWidths[1]+colWidths[2]+colWidths[3]+6 {
+				prLink = prLink[:colWidths[1]+colWidths[2]+colWidths[3]+3] + "…"
+			}
+			if i == 0 {
+				fmt.Printf("│ %-*s │ %-*s │\n", repoCol, prLinksLabel, colWidths[1]+colWidths[2]+colWidths[3]+6, prLink)
+			} else {
+				fmt.Printf("│ %-*s │ %-*s │\n", repoCol, "", colWidths[1]+colWidths[2]+colWidths[3]+6, prLink)
+			}
 		}
 	}
+
+	// Print bottom border
+	fmt.Println(bot)
 }
 
 // pad returns a string of n runes of s (usually "─")
