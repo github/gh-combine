@@ -430,8 +430,26 @@ func displayTableStats(stats *StatsCollector) {
 
 	repoCol := maxRepoLen
 	colWidths := []int{repoCol, 14, 14, 14, 12}
+
 	// Table border helpers
-	top := "╭" + pad("─", colWidths[0]) + "┬" + pad("─", colWidths[1]) + "┬" + pad("─", colWidths[2]) + "┬" + pad("─", colWidths[3]) + "┬" + pad("─", colWidths[4]) + "╮"
+	top := "╭"
+	sep := "├"
+	bot := "╰"
+	for i, w := range colWidths {
+		top += pad("─", w)
+		sep += pad("─", w)
+		bot += pad("─", w)
+		if i < len(colWidths)-1 {
+			top += "┬"
+			sep += "┼"
+			bot += "┴"
+		} else {
+			top += "╮"
+			sep += "┤"
+			bot += "╯"
+		}
+	}
+
 	head := fmt.Sprintf("│ %-*s │ %*s │ %*s │ %*s │ %-*s │",
 		repoCol, "Repository",
 		colWidths[1], "Combined PRs",
@@ -439,8 +457,6 @@ func displayTableStats(stats *StatsCollector) {
 		colWidths[3], "Skipped (CR)",
 		colWidths[4], "Status",
 	)
-	sep := "├" + pad("─", colWidths[0]) + "┼" + pad("─", colWidths[1]) + "┼" + pad("─", colWidths[2]) + "┼" + pad("─", colWidths[3]) + "┼" + pad("─", colWidths[4]) + "┤"
-	bot := "╰" + pad("─", colWidths[0]) + "┴" + pad("─", colWidths[1]) + "┴" + pad("─", colWidths[2]) + "┴" + pad("─", colWidths[3]) + "┴" + pad("─", colWidths[4]) + "╯"
 
 	fmt.Println(top)
 	fmt.Println(head)
