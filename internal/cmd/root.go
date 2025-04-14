@@ -432,7 +432,7 @@ func displayTableStats(stats *StatsCollector) {
 	}
 
 	repoCol := maxRepoLen
-	colWidths := []int{repoCol, 14, 14, 14, 12}
+	colWidths := []int{repoCol, 14, 20, 12}
 
 	// Table border helpers
 	top := "╭"
@@ -453,12 +453,11 @@ func displayTableStats(stats *StatsCollector) {
 		}
 	}
 
-	head := fmt.Sprintf("│ %-*s │ %-*s │ %-*s │ %-*s │ %-*s │",
+	head := fmt.Sprintf("│ %-*s │ %-*s │ %-*s │ %-*s │",
 		repoCol, "Repository",
 		colWidths[1], "PRs Combined",
-		colWidths[2], "Skipped (MC)",
-		colWidths[3], "Skipped (CR)",
-		colWidths[4], "Status",
+		colWidths[2], "Skipped",
+		colWidths[3], "Status",
 	)
 
 	fmt.Println(top)
@@ -472,13 +471,13 @@ func displayTableStats(stats *StatsCollector) {
 		} else if repoStat.NotEnoughPRs {
 			status = "NOT ENOUGH"
 		}
+		skipped := fmt.Sprintf("%d (MC), %d (CR)", repoStat.SkippedMergeConf, repoStat.SkippedCriteria)
 		fmt.Printf(
-			"│ %-*s │ %*d │ %*d │ %*d │ %-*s │\n",
+			"│ %-*s │ %*d │ %-*s │ %-*s │\n",
 			repoCol, truncate(repoStat.RepoName, repoCol),
 			colWidths[1], repoStat.CombinedCount,
-			colWidths[2], repoStat.SkippedMergeConf,
-			colWidths[3], repoStat.SkippedCriteria,
-			colWidths[4], status,
+			colWidths[2], skipped,
+			colWidths[3], status,
 		)
 	}
 	fmt.Println(bot)
