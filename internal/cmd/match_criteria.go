@@ -9,6 +9,7 @@ import (
 
 	"github.com/cli/go-gh/v2/pkg/api"
 	graphql "github.com/cli/shurcooL-graphql"
+	"github.com/github/gh-combine/internal/common"
 )
 
 // checks if a PR matches all filtering criteria
@@ -75,6 +76,12 @@ func labelsMatch(prLabels, ignoreLabels, selectLabels []string) bool {
 	// If no ignoreLabels or selectLabels are specified, all labels pass this check
 	if len(ignoreLabels) == 0 && len(selectLabels) == 0 {
 		return true
+	}
+
+	if !caseSensitiveLabels {
+		prLabels = common.NormalizeArray(prLabels)
+		ignoreLabels = common.NormalizeArray(ignoreLabels)
+		selectLabels = common.NormalizeArray(selectLabels)
 	}
 
 	// If the pull request contains any of the ignore labels, it doesn't match

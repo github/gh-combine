@@ -6,107 +6,147 @@ func TestLabelsMatch(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		prLabels     []string
-		ignoreLabels []string
-		selectLabels []string
-		want         bool
+		name          string
+		prLabels      []string
+		ignoreLabels  []string
+		selectLabels  []string
+		caseSensitive bool
+		want          bool
 	}{
 		{
 			want: true,
 		},
 
 		{
+			name:         "--ignore-labels match",
 			prLabels:     []string{"a", "b"},
 			ignoreLabels: []string{"b"},
 			want:         false,
 		},
 		{
+			name:         "--ignore-labels match (with one out of two)",
 			prLabels:     []string{"a", "b"},
 			ignoreLabels: []string{"b", "c"},
 			want:         false,
 		},
 
 		{
+			name:         "no labels match (select or ignore)",
 			prLabels:     []string{"a"},
 			ignoreLabels: []string{"b"},
 			selectLabels: []string{"c"},
 			want:         false,
 		},
 		{
+			name:         "--select-labels match",
 			prLabels:     []string{"a", "c"},
 			ignoreLabels: []string{"b"},
 			selectLabels: []string{"c"},
 			want:         true,
 		},
 		{
+			name:         "--select-labels match (with one out of two) and ignore labels don't match",
 			prLabels:     []string{"a"},
 			ignoreLabels: []string{"b"},
 			selectLabels: []string{"a", "c"},
 			want:         true,
 		},
 		{
+			name:         "the pull request has no labels",
 			prLabels:     []string{},
 			ignoreLabels: []string{"b"},
 			selectLabels: []string{"a", "c"},
 			want:         false,
 		},
 		{
+			name:         "the pull request has no labels and ignore labels don't match so it matches - but select labels is empty so it means all labels or even no labels match",
 			prLabels:     []string{},
 			ignoreLabels: []string{"b"},
 			selectLabels: []string{},
 			want:         true,
 		},
 		{
+			name:         "the pull request has no labels but we want to match the a label",
 			prLabels:     []string{},
 			ignoreLabels: []string{},
 			selectLabels: []string{"a"},
 			want:         false,
 		},
 		{
+			name:         "no label match criteria, so it matches",
 			prLabels:     []string{},
 			ignoreLabels: []string{},
 			selectLabels: []string{},
 			want:         true,
 		},
 		{
+			name:         "with one matching label and no matching ignore labels so it matches",
 			prLabels:     []string{"a"},
 			selectLabels: []string{"a"},
 			ignoreLabels: []string{"b"},
 			want:         true,
 		},
 		{
+			name:         "the pr labels match the select and ignore labels so it doesn't match",
 			prLabels:     []string{"a"},
 			selectLabels: []string{"a"},
 			ignoreLabels: []string{"a"},
 			want:         false,
 		},
 		{
+			name:         "the pr has one label but no defined ignore or select labels so it matches",
 			prLabels:     []string{"a"},
 			selectLabels: []string{},
 			ignoreLabels: []string{},
 			want:         true,
 		},
 		{
+			name:         "the pr has one label and it is the select label so it matches",
 			prLabels:     []string{"a"},
 			selectLabels: []string{"a"},
 			ignoreLabels: []string{},
 			want:         true,
 		},
 		{
+			name:         "the pr has labels and matching select labels but it matches an ignore label so it doesn't match",
 			prLabels:     []string{"a", "b", "c"},
 			selectLabels: []string{"a", "b"},
 			ignoreLabels: []string{"c"},
 			want:         false,
 		},
+		{
+			name:          "the pr has uppercase labels and we are using case insensitive labels so it matches",
+			prLabels:      []string{"Dependencies", "rUby", "ready-for-Review"},
+			selectLabels:  []string{"dependencies", "ready-for-review"},
+			ignoreLabels:  []string{"blocked"},
+			want:          true,
+			caseSensitive: false,
+		},
+		{
+			name:          "the pr has uppercase labels and we are using case sensitive labels so it doesn't match",
+			prLabels:      []string{"Dependencies", "rUby", "ready-for-Review"},
+			selectLabels:  []string{"dependencies", "ready-for-review"},
+			ignoreLabels:  []string{"blocked"},
+			want:          false,
+			caseSensitive: true,
+		},
 	}
 
 	for _, test := range tests {
-		t.Run("", func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
+			// Save the original value of caseSensitiveLabels
+			originalCaseSensitive := caseSensitiveLabels
+			defer func() { caseSensitiveLabels = originalCaseSensitive }() // Restore after test
+
+			// Set caseSensitiveLabels for this test
+			caseSensitiveLabels = test.caseSensitive
+
+			// Run the function
 			got := labelsMatch(test.prLabels, test.ignoreLabels, test.selectLabels)
 			if got != test.want {
-				t.Errorf("want %v, got %v", test.want, got)
+				t.Errorf("Test %q failed: want %v, got %v", test.name, test.want, got)
 			}
 		})
 	}
