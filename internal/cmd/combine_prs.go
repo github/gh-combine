@@ -225,21 +225,47 @@ func createPullRequest(ctx context.Context, client RESTClientInterface, repo git
 		"body":  body,
 	}
 
-	// Add labels if provided
-	if len(labels) > 0 {
-		payload["labels"] = labels
-	}
-
-	// Add assignees if provided
-	if len(assignees) > 0 {
-		payload["assignees"] = assignees
-	}
-
 	requestBody, err := encodePayload(payload)
 	if err != nil {
 		return fmt.Errorf("failed to encode payload: %w", err)
 	}
-	return client.Post(endpoint, requestBody, nil)
+
+	// Create the pull request
+	var prResponse struct {
+		Number int `json:"number"`
+	}
+	err = client.Post(endpoint, requestBody, &prResponse)
+	if err != nil {
+		return fmt.Errorf("failed to create pull request: %w", err)
+	}
+
+	// Add labels if provided
+	if len(labels) > 0 {
+		labelsEndpoint := fmt.Sprintf("repos/%s/%s/issues/%d/labels", repo.Owner, repo.Repo, prResponse.Number)
+		labelsPayload, err := encodePayload(map[string][]string{"labels": labels})
+		if err != nil {
+			return fmt.Errorf("failed to encode labels payload: %w", err)
+		}
+		err = client.Post(labelsEndpoint, labelsPayload, nil)
+		if err != nil {
+			return fmt.Errorf("failed to add labels: %w", err)
+		}
+	}
+
+	// Add assignees if provided
+	if len(assignees) > 0 {
+		assigneesEndpoint := fmt.Sprintf("repos/%s/%s/issues/%d/assignees", repo.Owner, repo.Repo, prResponse.Number)
+		assigneesPayload, err := encodePayload(map[string][]string{"assignees": assignees})
+		if err != nil {
+			return fmt.Errorf("failed to encode assignees payload: %w", err)
+		}
+		err = client.Post(assigneesEndpoint, assigneesPayload, nil)
+		if err != nil {
+			return fmt.Errorf("failed to add assignees: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // encodePayload encodes a payload as JSON and returns an io.Reader
