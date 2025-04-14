@@ -565,6 +565,7 @@ func displayTableStats(stats *StatsCollector) {
 			}
 		}
 	}
+	fmt.Println()
 }
 
 // pad returns a string of n runes of s (usually "─")
