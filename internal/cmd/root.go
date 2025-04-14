@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
@@ -35,7 +36,30 @@ var (
 	workingBranchSuffix string
 	dependabot          bool
 	caseSensitiveLabels bool
+	noColor             bool
+	noStats             bool
 )
+
+// StatsCollector tracks stats for the CLI run
+type StatsCollector struct {
+	ReposProcessed          int
+	PRsCombined             int
+	PRsSkippedMergeConflict int
+	PRsSkippedCriteria      int
+	PerRepoStats            map[string]*RepoStats
+	CombinedPRLinks         []string
+	StartTime               time.Time
+	EndTime                 time.Time
+}
+
+type RepoStats struct {
+	RepoName         string
+	CombinedCount    int
+	SkippedMergeConf int
+	SkippedCriteria  int
+	CombinedPRLink   string
+	NotEnoughPRs     bool
+}
 
 // NewRootCmd creates the root command for the gh-combine CLI
 func NewRootCmd() *cobra.Command {
@@ -96,6 +120,8 @@ func NewRootCmd() *cobra.Command {
       # Additional options
       gh combine owner/repo --autoclose                         # Close source PRs when combined PR is merged
 	  gh combine owner/repo --base-branch main                  # Use a different base branch for the combined PR
+	  gh combine owner/repo --no-color                          # Disable color output
+	  gh combine owner/repo --no-stats                          # Disable stats summary display
 	  gh combine owner/repo --combine-branch-name combined-prs  # Use a different name for the combined PR branch
 	  gh combine owner/repo --working-branch-suffix -working    # Use a different suffix for the working branch
       gh combine owner/repo --update-branch                     # Update the branch of the combined PR`,
@@ -127,6 +153,8 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.Flags().IntVar(&minimum, "minimum", 2, "Minimum number of PRs to combine")
 	rootCmd.Flags().StringVar(&defaultOwner, "owner", "", "Default owner for repositories (if not specified in repo name or missing from file inputs)")
 	rootCmd.Flags().BoolVar(&caseSensitiveLabels, "case-sensitive-labels", false, "Use case-sensitive label matching")
+	rootCmd.Flags().BoolVar(&noColor, "no-color", false, "Disable color output")
+	rootCmd.Flags().BoolVar(&noStats, "no-stats", false, "Disable stats summary display")
 
 	// Add deprecated flags for backward compatibility
 	// rootCmd.Flags().IntVar(&minimum, "min-combine", 2, "Minimum number of PRs to combine (deprecated, use --minimum)")
@@ -172,16 +200,27 @@ func runCombine(cmd *cobra.Command, args []string) error {
 		return errors.New("no repositories specified")
 	}
 
+	stats := &StatsCollector{
+		PerRepoStats: make(map[string]*RepoStats),
+		StartTime:    time.Now(),
+	}
+
 	// Execute combination logic
-	if err := executeCombineCommand(ctx, spinner, repos); err != nil {
+	if err := executeCombineCommand(ctx, spinner, repos, stats); err != nil {
 		return fmt.Errorf("command execution failed: %w", err)
+	}
+	stats.EndTime = time.Now()
+
+	if !noStats {
+		spinner.Stop()
+		displayStatsSummary(stats)
 	}
 
 	return nil
 }
 
 // executeCombineCommand performs the actual API calls and processing
-func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string) error {
+func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string, stats *StatsCollector) error {
 	// Create GitHub API client
 	restClient, err := api.DefaultRESTClient()
 	if err != nil {
@@ -213,23 +252,27 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 		spinner.UpdateMessage("Processing " + repo.String())
 		Logger.Debug("Processing repository", "repo", repo)
 
+		if stats.PerRepoStats[repo.String()] == nil {
+			stats.PerRepoStats[repo.String()] = &RepoStats{RepoName: repo.String()}
+		}
+
 		// Process the repository
-		if err := processRepository(ctx, restClient, graphQlClient, spinner, repo); err != nil {
+		if err := processRepository(ctx, restClient, graphQlClient, spinner, repo, stats.PerRepoStats[repo.String()], stats); err != nil {
 			if ctx.Err() != nil {
 				// If the context was cancelled, stop processing
 				return ctx.Err()
 			}
-			// Otherwise just log the error and continue
 			Logger.Warn("Failed to process repository", "repo", repo, "error", err)
 			continue
 		}
+		stats.ReposProcessed++
 	}
 
 	return nil
 }
 
 // processRepository handles a single repository's PRs
-func processRepository(ctx context.Context, client *api.RESTClient, graphQlClient *api.GraphQLClient, spinner *Spinner, repo github.Repo) error {
+func processRepository(ctx context.Context, client *api.RESTClient, graphQlClient *api.GraphQLClient, spinner *Spinner, repo github.Repo, repoStats *RepoStats, stats *StatsCollector) error {
 	// Check for cancellation
 	select {
 	case <-ctx.Done():
@@ -263,6 +306,8 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 
 		// Check if PR matches all filtering criteria
 		if !PrMatchesCriteria(pull.Head.Ref, labels) {
+			repoStats.SkippedCriteria++
+			stats.PRsSkippedCriteria++
 			continue
 		}
 
@@ -274,7 +319,8 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 		}
 
 		if !meetsRequirements {
-			// Skip this PR as it doesn't meet CI/approval requirements
+			repoStats.SkippedCriteria++
+			stats.PRsSkippedCriteria++
 			continue
 		}
 
@@ -284,6 +330,7 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 	// Check if we have enough PRs to combine
 	if len(matchedPRs) < minimum {
 		Logger.Debug("Not enough PRs match criteria", "repo", repo, "matched", len(matchedPRs), "required", minimum)
+		repoStats.NotEnoughPRs = true
 		return nil
 	}
 
@@ -294,10 +341,19 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 		RESTClientInterface
 	}{client}
 
-	// Combine the PRs
-	err = CombinePRs(ctx, graphQlClient, restClientWrapper, repo, matchedPRs)
+	// Combine the PRs and collect stats
+	combined, mergeConflicts, combinedPRLink, err := CombinePRsWithStats(ctx, graphQlClient, restClientWrapper, repo, matchedPRs)
 	if err != nil {
 		return fmt.Errorf("failed to combine PRs: %w", err)
+	}
+
+	repoStats.CombinedCount = len(combined)
+	repoStats.SkippedMergeConf = len(mergeConflicts)
+	repoStats.CombinedPRLink = combinedPRLink
+	stats.PRsCombined += len(combined)
+	stats.PRsSkippedMergeConflict += len(mergeConflicts)
+	if combinedPRLink != "" {
+		stats.CombinedPRLinks = append(stats.CombinedPRLinks, combinedPRLink)
 	}
 
 	Logger.Debug("Combined PRs", "count", len(matchedPRs), "owner", repo.Owner, "repo", repo.Repo)
@@ -342,4 +398,42 @@ func fetchOpenPullRequests(ctx context.Context, client *api.RESTClient, repo git
 	}
 
 	return allPulls, nil
+}
+
+func displayStatsSummary(stats *StatsCollector) {
+	elapsed := stats.EndTime.Sub(stats.StartTime)
+	if noColor {
+		fmt.Println("Stats Summary (Color Disabled):")
+	} else {
+		fmt.Println("\033[1;34mStats Summary:\033[0m")
+	}
+	fmt.Printf("Repositories Processed: %d\n", stats.ReposProcessed)
+	fmt.Printf("PRs Combined: %d\n", stats.PRsCombined)
+	fmt.Printf("PRs Skipped (Merge Conflicts): %d\n", stats.PRsSkippedMergeConflict)
+	fmt.Printf("PRs Skipped (Criteria Not Met): %d\n", stats.PRsSkippedCriteria)
+	fmt.Printf("Execution Time: %s\n", elapsed.Round(time.Second))
+
+	if !noColor {
+		fmt.Println("\033[1;32mLinks to Combined PRs:\033[0m")
+	} else {
+		fmt.Println("Links to Combined PRs:")
+	}
+	for _, link := range stats.CombinedPRLinks {
+		fmt.Println("-", link)
+	}
+
+	fmt.Println("\nPer-Repository Details:")
+	for _, repoStat := range stats.PerRepoStats {
+		fmt.Printf("  %s\n", repoStat.RepoName)
+		if repoStat.NotEnoughPRs {
+			fmt.Println("    Not enough PRs to combine.")
+			continue
+		}
+		fmt.Printf("    Combined: %d\n", repoStat.CombinedCount)
+		fmt.Printf("    Skipped (Merge Conflicts): %d\n", repoStat.SkippedMergeConf)
+		fmt.Printf("    Skipped (Criteria): %d\n", repoStat.SkippedCriteria)
+		if repoStat.CombinedPRLink != "" {
+			fmt.Printf("    Combined PR: %s\n", repoStat.CombinedPRLink)
+		}
+	}
 }

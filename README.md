@@ -144,6 +144,18 @@ gh combine owner/repo --ignore-labels wip,dependencies
 gh combine owner/repo --update-branch
 ```
 
+### Disable Stats Output
+
+```bash
+gh combine owner/repo --no-stats
+```
+
+### Disable Color
+
+```bash
+gh combine owner/repo --no-color
+```
+
 ### Running with Debug Logging
 
 ```bash
