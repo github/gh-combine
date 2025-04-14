@@ -61,6 +61,7 @@ type RepoStats struct {
 	SkippedCriteria  int
 	CombinedPRLink   string
 	NotEnoughPRs     bool
+	TotalPRs		 int
 }
 
 // NewRootCmd creates the root command for the gh-combine CLI
@@ -290,6 +291,8 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 		return fmt.Errorf("failed to fetch open pull requests: %w", err)
 	}
 
+	repoStats.TotalPRs = len(pulls)
+
 	// Check for cancellation again
 	select {
 	case <-ctx.Done():
@@ -452,7 +455,7 @@ func displayTableStats(stats *StatsCollector) {
 
 	head := fmt.Sprintf("│ %-*s │ %-*s │ %-*s │ %-*s │ %-*s │",
 		repoCol, "Repository",
-		colWidths[1], "Combined PRs",
+		colWidths[1], "PRs Combined",
 		colWidths[2], "Skipped (MC)",
 		colWidths[3], "Skipped (CR)",
 		colWidths[4], "Status",
@@ -464,10 +467,11 @@ func displayTableStats(stats *StatsCollector) {
 
 	for _, repoStat := range stats.PerRepoStats {
 		status := "OK"
-		if repoStat.NotEnoughPRs {
-			status = "NOT ENOUGH"
-		} else if repoStat.CombinedCount == 0 && repoStat.SkippedMergeConf == 0 && repoStat.SkippedCriteria == 0 {
+		if repoStats.TotalPRs == 0 {
 			status = "NO PRs"
+		}
+		else if repoStat.NotEnoughPRs {
+			status = "NOT ENOUGH PRs"
 		}
 		fmt.Printf(
 			"│ %-*s │ %*d │ %*d │ %*d │ %-*s │\n",
