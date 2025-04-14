@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cli/go-gh/v2/pkg/api"
@@ -494,7 +495,7 @@ func displayTableStats(stats *StatsCollector) {
 			status = "NOT ENOUGH"
 			statusColor = yellow
 		}
-	
+
 		mcColor := green
 		dnmColor := green
 		if repoStat.SkippedMergeConf > 0 {
@@ -506,22 +507,25 @@ func displayTableStats(stats *StatsCollector) {
 		mcRaw := fmt.Sprintf("%d", repoStat.SkippedMergeConf)
 		dnmRaw := fmt.Sprintf("%d", repoStat.SkippedCriteria)
 		skippedRaw := fmt.Sprintf("%s (MC), %s (DNM)", mcRaw, dnmRaw)
-	
-		// Pad all fields using raw values
+
 		repoName := truncate(repoStat.RepoName, repoCol)
 		combined := fmt.Sprintf("%*d", colWidths[1], repoStat.CombinedCount)
-		skipped := fmt.Sprintf("%-*s", colWidths[2], skippedRaw)
-		statusPadded := fmt.Sprintf("%-*s", colWidths[3], status)
-	
-		// Now colorize only the numbers and status
-		mcColored := colorize(mcRaw, mcColor)
-		dnmColored := colorize(dnmRaw, dnmColor)
-		skippedColored := skippedRaw
-		skippedColored = strings.Replace(skippedColored, mcRaw, mcColored, 1)
-		skippedColored = strings.Replace(skippedColored, dnmRaw, dnmColored, 1)
+		// Pad skippedRaw to colWidths[2] before coloring
+		skippedPadded := fmt.Sprintf("%-*s", colWidths[2], skippedRaw)
+		// Colorize only the numbers in the padded string
+		mcIdx := strings.Index(skippedPadded, mcRaw)
+		dnmIdx := strings.Index(skippedPadded, dnmRaw)
+		skippedColored := skippedPadded
+		if mcIdx != -1 {
+			skippedColored = skippedColored[:mcIdx] + colorize(mcRaw, mcColor) + skippedColored[mcIdx+len(mcRaw):]
+		}
+		if dnmIdx != -1 {
+			dnmIdx = strings.Index(skippedColored, dnmRaw) // recalc in case mcRaw and dnmRaw overlap
+			skippedColored = skippedColored[:dnmIdx] + colorize(dnmRaw, dnmColor) + skippedColored[dnmIdx+len(dnmRaw):]
+		}
 		statusColored := colorize(status, statusColor)
-		statusColored = fmt.Sprintf("%-*s", colWidths[3]+len(statusColored)-len(status), statusColored) // pad after coloring
-	
+		statusColored = fmt.Sprintf("%-*s", colWidths[3]+len(statusColored)-len(status), statusColored)
+
 		fmt.Printf(
 			"│ %-*s │ %s │ %s │ %s │\n",
 			repoCol, repoName,
