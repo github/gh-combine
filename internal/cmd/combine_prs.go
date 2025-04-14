@@ -20,25 +20,27 @@ type RESTClientInterface interface {
 	Patch(endpoint string, body io.Reader, response interface{}) error
 }
 
-func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClient RESTClientInterface, repo github.Repo, pulls github.Pulls) error {
-	// Define the combined branch name
+// CombinePRsWithStats combines PRs and returns stats for summary output
+func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, restClient RESTClientInterface, repo github.Repo, pulls github.Pulls) (combined []string, mergeConflicts []string, combinedPRLink string, err error) {
 	workingBranchName := combineBranchName + workingBranchSuffix
 
-	// Get the default branch of the repository
 	repoDefaultBranch, err := getDefaultBranch(ctx, restClient, repo)
 	if err != nil {
-		return fmt.Errorf("failed to get default branch: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to get default branch: %w", err)
 	}
 
 	baseBranchSHA, err := getBranchSHA(ctx, restClient, repo, repoDefaultBranch)
 	if err != nil {
-		return fmt.Errorf("failed to get SHA of main branch: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to get SHA of main branch: %w", err)
 	}
+// Delete any pre-existing working branch
 
-	// Delete any pre-existing working branch
+// Delete any pre-existing working branch
 	err = deleteBranch(ctx, restClient, repo, workingBranchName)
 	if err != nil {
 		Logger.Debug("Working branch not found, continuing", "branch", workingBranchName)
+
+	// Delete any pre-existing combined branch
 	}
 
 	// Delete any pre-existing combined branch
@@ -47,60 +49,106 @@ func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClien
 		Logger.Debug("Combined branch not found, continuing", "branch", combineBranchName)
 	}
 
-	// Create the combined branch
 	err = createBranch(ctx, restClient, repo, combineBranchName, baseBranchSHA)
 	if err != nil {
-		return fmt.Errorf("failed to create combined branch: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to create combined branch: %w", err)
 	}
-
-	// Create the working branch
 	err = createBranch(ctx, restClient, repo, workingBranchName, baseBranchSHA)
 	if err != nil {
-		return fmt.Errorf("failed to create working branch: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to create working branch: %w", err)
 	}
 
-	// Merge all PR branches into the working branch
-	var combinedPRs []string
-	var mergeFailedPRs []string
 	for _, pr := range pulls {
 		err := mergeBranch(ctx, restClient, repo, workingBranchName, pr.Head.Ref)
 		if err != nil {
-			// Check if the error is a 409 merge conflict
 			if isMergeConflictError(err) {
-				// Log merge conflicts at DEBUG level
 				Logger.Debug("Merge conflict", "branch", pr.Head.Ref, "error", err)
 			} else {
-				// Log other errors at WARN level
 				Logger.Warn("Failed to merge branch", "branch", pr.Head.Ref, "error", err)
 			}
-			mergeFailedPRs = append(mergeFailedPRs, fmt.Sprintf("#%d", pr.Number))
+			mergeConflicts = append(mergeConflicts, fmt.Sprintf("#%d", pr.Number))
 		} else {
 			Logger.Debug("Merged branch", "branch", pr.Head.Ref)
-			combinedPRs = append(combinedPRs, fmt.Sprintf("#%d - %s", pr.Number, pr.Title))
+			combined = append(combined, fmt.Sprintf("#%d - %s", pr.Number, pr.Title))
 		}
 	}
 
-	// Update the combined branch to the latest commit of the working branch
 	err = updateRef(ctx, restClient, repo, combineBranchName, workingBranchName)
 	if err != nil {
-		return fmt.Errorf("failed to update combined branch: %w", err)
+		return combined, mergeConflicts, "", fmt.Errorf("failed to update combined branch: %w", err)
 	}
-
-	// Delete the temporary working branch
 	err = deleteBranch(ctx, restClient, repo, workingBranchName)
 	if err != nil {
 		Logger.Warn("Failed to delete working branch", "branch", workingBranchName, "error", err)
 	}
 
-	// Create the combined PR
-	prBody := generatePRBody(combinedPRs, mergeFailedPRs)
+	prBody := generatePRBody(combined, mergeConflicts)
 	prTitle := "Combined PRs"
-	err = createPullRequest(ctx, restClient, repo, prTitle, combineBranchName, repoDefaultBranch, prBody, addLabels, addAssignees)
-	if err != nil {
-		return fmt.Errorf("failed to create combined PR: %w", err)
+	prNumber, prErr := createPullRequestWithNumber(ctx, restClient, repo, prTitle, combineBranchName, repoDefaultBranch, prBody, addLabels, addAssignees)
+	if prErr != nil {
+		return combined, mergeConflicts, "", fmt.Errorf("failed to create combined PR: %w", prErr)
+	}
+	if prNumber > 0 {
+		combinedPRLink = fmt.Sprintf("https://github.com/%s/%s/pull/%d", repo.Owner, repo.Repo, prNumber)
 	}
 
-	return nil
+	return combined, mergeConflicts, combinedPRLink, nil
+}
+
+// createPullRequestWithNumber creates a PR and returns its number
+func createPullRequestWithNumber(ctx context.Context, client RESTClientInterface, repo github.Repo, title, head, base, body string, labels, assignees []string) (int, error) {
+	endpoint := fmt.Sprintf("repos/%s/%s/pulls", repo.Owner, repo.Repo)
+	payload := map[string]interface{}{
+		"title": title,
+		"head":  head,
+		"base":  base,
+		"body":  body,
+	}
+
+	requestBody, err := encodePayload(payload)
+	if err != nil {
+		return 0, fmt.Errorf("failed to encode payload: %w", err)
+	}
+
+	var prResponse struct {
+		Number int `json:"number"`
+	}
+	err = client.Post(endpoint, requestBody, &prResponse)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create pull request: %w", err)
+	}
+
+	if len(labels) > 0 {
+		labelsEndpoint := fmt.Sprintf("repos/%s/%s/issues/%d/labels", repo.Owner, repo.Repo, prResponse.Number)
+		labelsPayload, err := encodePayload(map[string][]string{"labels": labels})
+		if err != nil {
+			return prResponse.Number, fmt.Errorf("failed to encode labels payload: %w", err)
+		}
+		err = client.Post(labelsEndpoint, labelsPayload, nil)
+		if err != nil {
+			return prResponse.Number, fmt.Errorf("failed to add labels: %w", err)
+		}
+	}
+
+	if len(assignees) > 0 {
+		assigneesEndpoint := fmt.Sprintf("repos/%s/%s/issues/%d/assignees", repo.Owner, repo.Repo, prResponse.Number)
+		assigneesPayload, err := encodePayload(map[string][]string{"assignees": assignees})
+		if err != nil {
+			return prResponse.Number, fmt.Errorf("failed to encode assignees payload: %w", err)
+		}
+		err = client.Post(assigneesEndpoint, assigneesPayload, nil)
+		if err != nil {
+			return prResponse.Number, fmt.Errorf("failed to add assignees: %w", err)
+		}
+	}
+
+	return prResponse.Number, nil
+}
+
+// Keep CombinePRs for backward compatibility
+func CombinePRs(ctx context.Context, graphQlClient *api.GraphQLClient, restClient RESTClientInterface, repo github.Repo, pulls github.Pulls) error {
+	_, _, _, err := CombinePRsWithStats(ctx, graphQlClient, restClient, repo, pulls)
+	return err
 }
 
 // isMergeConflictError checks if the error is a 409 Merge Conflict
