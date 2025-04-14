@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -38,6 +39,7 @@ var (
 	caseSensitiveLabels bool
 	noColor             bool
 	noStats             bool
+	outputFormat        string
 )
 
 // StatsCollector tracks stats for the CLI run
@@ -155,6 +157,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.Flags().BoolVar(&caseSensitiveLabels, "case-sensitive-labels", false, "Use case-sensitive label matching")
 	rootCmd.Flags().BoolVar(&noColor, "no-color", false, "Disable color output")
 	rootCmd.Flags().BoolVar(&noStats, "no-stats", false, "Disable stats summary display")
+	rootCmd.Flags().StringVar(&outputFormat, "output", "table", "Output format: table, plain, or json")
 
 	// Add deprecated flags for backward compatibility
 	// rootCmd.Flags().IntVar(&minimum, "min-combine", 2, "Minimum number of PRs to combine (deprecated, use --minimum)")
@@ -213,7 +216,7 @@ func runCombine(cmd *cobra.Command, args []string) error {
 
 	if !noStats {
 		spinner.Stop()
-		displayStatsSummary(stats)
+		displayStatsSummary(stats, outputFormat)
 	}
 
 	return nil
@@ -400,24 +403,46 @@ func fetchOpenPullRequests(ctx context.Context, client *api.RESTClient, repo git
 	return allPulls, nil
 }
 
-func displayStatsSummary(stats *StatsCollector) {
-	elapsed := stats.EndTime.Sub(stats.StartTime)
-	if noColor {
-		fmt.Println("Stats Summary (Color Disabled):")
-	} else {
-		fmt.Println("\033[1;34mStats Summary:\033[0m")
+func displayStatsSummary(stats *StatsCollector, outputFormat string) {
+	switch outputFormat {
+	case "table":
+		displayTableStats(stats)
+	case "json":
+		displayJSONStats(stats)
+	case "plain":
+		fallthrough
+	default:
+		displayPlainStats(stats)
 	}
+}
+
+func displayTableStats(stats *StatsCollector) {
+	fmt.Println("Table output not implemented yet")
+}
+
+func displayJSONStats(stats *StatsCollector) {
+	output := map[string]interface{}{
+		"reposProcessed":          stats.ReposProcessed,
+		"prsCombined":             stats.PRsCombined,
+		"prsSkippedMergeConflict": stats.PRsSkippedMergeConflict,
+		"prsSkippedCriteria":      stats.PRsSkippedCriteria,
+		"executionTime":           stats.EndTime.Sub(stats.StartTime).String(),
+		"combinedPRLinks":         stats.CombinedPRLinks,
+		"perRepoStats":            stats.PerRepoStats,
+	}
+	jsonData, _ := json.MarshalIndent(output, "", "  ")
+	fmt.Println(string(jsonData))
+}
+
+func displayPlainStats(stats *StatsCollector) {
+	elapsed := stats.EndTime.Sub(stats.StartTime)
 	fmt.Printf("Repositories Processed: %d\n", stats.ReposProcessed)
 	fmt.Printf("PRs Combined: %d\n", stats.PRsCombined)
 	fmt.Printf("PRs Skipped (Merge Conflicts): %d\n", stats.PRsSkippedMergeConflict)
 	fmt.Printf("PRs Skipped (Criteria Not Met): %d\n", stats.PRsSkippedCriteria)
 	fmt.Printf("Execution Time: %s\n", elapsed.Round(time.Second))
 
-	if !noColor {
-		fmt.Println("\033[1;32mLinks to Combined PRs:\033[0m")
-	} else {
-		fmt.Println("Links to Combined PRs:")
-	}
+	fmt.Println("Links to Combined PRs:")
 	for _, link := range stats.CombinedPRLinks {
 		fmt.Println("-", link)
 	}
