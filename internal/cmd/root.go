@@ -495,12 +495,17 @@ func displayTableStats(stats *StatsCollector) {
 			statusColor = yellow
 		}
 
-		skippedColor := green
-		if repoStat.SkippedMergeConf > 0 || repoStat.SkippedCriteria > 0 {
-			skippedColor = yellow
+		mcColor := green
+		dnmColor := green
+		if repoStat.SkippedMergeConf > 0 {
+			mcColor = yellow
 		}
-		skipped := fmt.Sprintf("%d (MC), %d (DNM)", repoStat.SkippedMergeConf, repoStat.SkippedCriteria)
-		skipped = colorize(skipped, skippedColor)
+		if repoStat.SkippedCriteria > 0 {
+			dnmColor = yellow
+		}
+		mc := colorize(fmt.Sprintf("%d", repoStat.SkippedMergeConf), mcColor)
+		dnm := colorize(fmt.Sprintf("%d", repoStat.SkippedCriteria), dnmColor)
+		skipped := fmt.Sprintf("%s (MC), %s (DNM)", mc, dnm)
 
 		fmt.Printf(
 			"│ %-*s │ %*d │ %-*s │ %-*s │\n",
