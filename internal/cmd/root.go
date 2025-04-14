@@ -417,7 +417,53 @@ func displayStatsSummary(stats *StatsCollector, outputFormat string) {
 }
 
 func displayTableStats(stats *StatsCollector) {
-	fmt.Println("Table output not implemented yet")
+	top := "╭──────────────────────────────┬──────────────┬──────────────┬──────────────┬──────────────┬──────────────────────────────────────────────────────────────╮"
+	head := "│ Repository                   │ Combined PRs │ Skipped (MC) │ Skipped (CR) │   Status     │ Combined PR Link                                             │"
+	sep :=  "├──────────────────────────────┼──────────────┼──────────────┼──────────────┼──────────────┼──────────────────────────────────────────────────────────────┤"
+	bot := "╰──────────────────────────────┴──────────────┴──────────────┴──────────────┴──────────────┴──────────────────────────────────────────────────────────────╯"
+
+	fmt.Println(top)
+	fmt.Println(head)
+	fmt.Println(sep)
+
+	for _, repoStat := range stats.PerRepoStats {
+		status := "OK"
+		if repoStat.NotEnoughPRs {
+			status = "NOT ENOUGH"
+		} else if repoStat.CombinedCount == 0 && repoStat.SkippedMergeConf == 0 && repoStat.SkippedCriteria == 0 {
+			status = "NO PRs"
+		}
+		link := repoStat.CombinedPRLink
+		if link == "" {
+			link = "-"
+		}
+		fmt.Printf(
+			"│ %-28s │ %12d │ %12d │ %12d │ %-12s │ %-54s │\n",
+			repoStat.RepoName,
+			repoStat.CombinedCount,
+			repoStat.SkippedMergeConf,
+			repoStat.SkippedCriteria,
+			status,
+			link,
+		)
+	}
+	fmt.Println(bot)
+
+	// Print summary row
+	fmt.Printf("\nSummary: Processed %d repos | Combined: %d | Skipped (MC): %d | Skipped (CR): %d | Time: %s\n",
+		stats.ReposProcessed,
+		stats.PRsCombined,
+		stats.PRsSkippedMergeConflict,
+		stats.PRsSkippedCriteria,
+		stats.EndTime.Sub(stats.StartTime).Round(time.Second),
+	)
+
+	if len(stats.CombinedPRLinks) > 0 {
+		fmt.Println("\nLinks to Combined PRs:")
+		for _, link := range stats.CombinedPRLinks {
+			fmt.Println("-", link)
+		}
+	}
 }
 
 func displayJSONStats(stats *StatsCollector) {
