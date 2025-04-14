@@ -219,10 +219,10 @@ func updateRef(ctx context.Context, client RESTClientInterface, repo github.Repo
 func createPullRequest(ctx context.Context, client RESTClientInterface, repo github.Repo, title, head, base, body string, labels, assignees []string) error {
 	endpoint := fmt.Sprintf("repos/%s/%s/pulls", repo.Owner, repo.Repo)
 	payload := map[string]interface{}{
-		"title":     title,
-		"head":      head,
-		"base":      base,
-		"body":      body,
+		"title": title,
+		"head":  head,
+		"base":  base,
+		"body":  body,
 	}
 
 	// Add labels if provided

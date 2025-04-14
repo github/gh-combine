@@ -7,10 +7,10 @@ import (
 )
 
 type MockRESTClient struct {
-	PostFunc    func(endpoint string, body interface{}, response interface{}) error
-	GetFunc     func(endpoint string, response interface{}) error
-	DeleteFunc  func(endpoint string, response interface{}) error
-	PatchFunc   func(endpoint string, body io.Reader, response interface{}) error
+	PostFunc   func(endpoint string, body interface{}, response interface{}) error
+	GetFunc    func(endpoint string, response interface{}) error
+	DeleteFunc func(endpoint string, response interface{}) error
+	PatchFunc  func(endpoint string, body io.Reader, response interface{}) error
 }
 
 // Updated the Post method to match the RESTClientInterface signature

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/github/gh-combine/internal/github"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreatePullRequest(t *testing.T) {
