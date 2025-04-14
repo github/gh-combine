@@ -421,6 +421,17 @@ func displayStatsSummary(stats *StatsCollector, outputFormat string) {
 }
 
 func displayTableStats(stats *StatsCollector) {
+	// ANSI color helpers
+	green := "\033[32m"
+	yellow := "\033[33m"
+	reset := "\033[0m"
+	colorize := func(s, color string) string {
+		if noColor {
+			return s
+		}
+		return color + s + reset
+	}
+
 	// Find max repo name length
 	maxRepoLen := len("Repository")
 	for _, repoStat := range stats.PerRepoStats {
