@@ -475,13 +475,17 @@ func displayTableStats(stats *StatsCollector) {
 	}
 
 	// Build header row with correct alignment and color, matching body formatting
-	headCells := []string{
-		fmt.Sprintf("%-*s", repoCol, colorizeBold("Repository", blue)),
-		fmt.Sprintf("%*s", colWidths[1], colorizeBold("PRs Combined", blue)),
-		fmt.Sprintf("%-*s", colWidths[2], colorizeBold("Skipped", blue)),
-		fmt.Sprintf("%-*s", colWidths[3], colorizeBold("Status", blue)),
-	}
-	head := "│ " + strings.Join(headCells, " │ ") + " │"
+	headRepo := fmt.Sprintf("%-*s", repoCol, colorizeBold("Repository", blue))
+	headCombined := fmt.Sprintf("%*s", colWidths[1], colorizeBold("PRs Combined", blue))
+	headSkipped := fmt.Sprintf("%-*s", colWidths[2], colorizeBold("Skipped", blue))
+	headStatus := fmt.Sprintf("%-*s", colWidths[3], colorizeBold("Status", blue))
+	head := fmt.Sprintf(
+		"│ %-*s │ %s │ %s │ %s │",
+		repoCol, headRepo,
+		headCombined,
+		headSkipped,
+		headStatus,
+	)
 
 	fmt.Println(top)
 	fmt.Println(head)
