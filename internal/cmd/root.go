@@ -289,8 +289,13 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 
 	Logger.Debug("Matched PRs", "repo", repo, "count", len(matchedPRs))
 
+	// Wrap the *api.RESTClient to implement RESTClientInterface
+	restClientWrapper := struct {
+		RESTClientInterface
+	}{client}
+
 	// Combine the PRs
-	err = CombinePRs(ctx, graphQlClient, client, repo, matchedPRs)
+	err = CombinePRs(ctx, graphQlClient, restClientWrapper, repo, matchedPRs)
 	if err != nil {
 		return fmt.Errorf("failed to combine PRs: %w", err)
 	}
