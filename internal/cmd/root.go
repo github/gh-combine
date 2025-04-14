@@ -436,9 +436,9 @@ func displayTableStats(stats *StatsCollector) {
 	sep := "├"
 	bot := "╰"
 	for i, w := range colWidths {
-		top += pad("─", w)
-		sep += pad("─", w)
-		bot += pad("─", w)
+		top += pad("─", w+2) // +2 for padding spaces
+		sep += pad("─", w+2)
+		bot += pad("─", w+2)
 		if i < len(colWidths)-1 {
 			top += "┬"
 			sep += "┼"
@@ -450,7 +450,7 @@ func displayTableStats(stats *StatsCollector) {
 		}
 	}
 
-	head := fmt.Sprintf("│ %-*s │ %*s │ %*s │ %*s │ %-*s │",
+	head := fmt.Sprintf("│ %-*s │ %-*s │ %-*s │ %-*s │ %-*s │",
 		repoCol, "Repository",
 		colWidths[1], "Combined PRs",
 		colWidths[2], "Skipped (MC)",
