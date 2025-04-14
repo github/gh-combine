@@ -453,11 +453,31 @@ func displayTableStats(stats *StatsCollector) {
 		}
 	}
 
+	// ANSI color helpers
+	bold := "\033[1m"
+	reset := "\033[0m"
+	blue := "\033[34m"
+	green := "\033[32m"
+	yellow := "\033[33m"
+
+	colorize := func(s, color string) string {
+		if noColor {
+			return s
+		}
+		return color + s + reset
+	}
+	colorizeBold := func(s, color string) string {
+		if noColor {
+			return s
+		}
+		return bold + color + s + reset
+	}
+
 	head := fmt.Sprintf("│ %-*s │ %-*s │ %-*s │ %-*s │",
-		repoCol, "Repository",
-		colWidths[1], "PRs Combined",
-		colWidths[2], "Skipped",
-		colWidths[3], "Status",
+		repoCol, colorizeBold("Repository", blue),
+		colWidths[1], colorizeBold("PRs Combined", blue),
+		colWidths[2], colorizeBold("Skipped", blue),
+		colWidths[3], colorizeBold("Status", blue),
 	)
 
 	fmt.Println(top)
@@ -466,22 +486,28 @@ func displayTableStats(stats *StatsCollector) {
 
 	for _, repoStat := range stats.PerRepoStats {
 		status := "OK"
+		statusColor := green
 		if repoStat.TotalPRs == 0 {
-			status = "NO OPEN PRs" // there are no open PRs in the repo
+			status = "NO OPEN PRs"
+			statusColor = green
 		} else if repoStat.NotEnoughPRs {
-			status = "NOT ENOUGH" // not enough PRs matched criteria to combine
+			status = "NOT ENOUGH"
+			statusColor = yellow
 		}
 
-		// MC = Merge Conflict
-		// DNM = Did Not Match (filters or other criteria)
+		skippedColor := green
+		if repoStat.SkippedMergeConf > 0 || repoStat.SkippedCriteria > 0 {
+			skippedColor = yellow
+		}
 		skipped := fmt.Sprintf("%d (MC), %d (DNM)", repoStat.SkippedMergeConf, repoStat.SkippedCriteria)
+		skipped = colorize(skipped, skippedColor)
 
 		fmt.Printf(
 			"│ %-*s │ %*d │ %-*s │ %-*s │\n",
 			repoCol, truncate(repoStat.RepoName, repoCol),
 			colWidths[1], repoStat.CombinedCount,
 			colWidths[2], skipped,
-			colWidths[3], status,
+			colWidths[3], colorize(status, statusColor),
 		)
 	}
 	fmt.Println(bot)
@@ -547,7 +573,7 @@ func displayPlainStats(stats *StatsCollector) {
 	fmt.Printf("Repositories Processed: %d\n", stats.ReposProcessed)
 	fmt.Printf("PRs Combined: %d\n", stats.PRsCombined)
 	fmt.Printf("PRs Skipped (Merge Conflicts): %d\n", stats.PRsSkippedMergeConflict)
-	fmt.Printf("PRs Skipped (Criteria Not Met): %d\n", stats.PRsSkippedCriteria)
+	fmt.Printf("PRs Skipped (Did Not Match): %d\n", stats.PRsSkippedCriteria)
 	fmt.Printf("Execution Time: %s\n", elapsed.Round(time.Second))
 
 	fmt.Println("Links to Combined PRs:")
@@ -564,7 +590,7 @@ func displayPlainStats(stats *StatsCollector) {
 		}
 		fmt.Printf("    Combined: %d\n", repoStat.CombinedCount)
 		fmt.Printf("    Skipped (Merge Conflicts): %d\n", repoStat.SkippedMergeConf)
-		fmt.Printf("    Skipped (Criteria): %d\n", repoStat.SkippedCriteria)
+		fmt.Printf("    Skipped (Did Not Match): %d\n", repoStat.SkippedCriteria)
 		if repoStat.CombinedPRLink != "" {
 			fmt.Printf("    Combined PR: %s\n", repoStat.CombinedPRLink)
 		}
