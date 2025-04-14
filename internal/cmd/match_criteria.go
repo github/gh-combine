@@ -9,6 +9,7 @@ import (
 
 	"github.com/cli/go-gh/v2/pkg/api"
 	graphql "github.com/cli/shurcooL-graphql"
+	"github.com/github/gh-combine/internal/common"
 )
 
 // checks if a PR matches all filtering criteria
@@ -19,7 +20,7 @@ func PrMatchesCriteria(branch string, prLabels []string) bool {
 	}
 
 	// Check label criteria if any are specified
-	if !labelsMatch(prLabels, ignoreLabels, selectLabels) {
+	if !labelsMatch(prLabels, ignoreLabels, selectLabels, caseSensitiveLabels) {
 		return false
 	}
 
@@ -71,10 +72,17 @@ func branchMatchesCriteria(branch string) bool {
 	return true
 }
 
-func labelsMatch(prLabels, ignoreLabels, selectLabels []string) bool {
+func labelsMatch(prLabels, ignoreLabels, selectLabels []string, caseSensitive bool) bool {
 	// If no ignoreLabels or selectLabels are specified, all labels pass this check
 	if len(ignoreLabels) == 0 && len(selectLabels) == 0 {
 		return true
+	}
+
+	// Normalize labels for case-insensitive matching if caseSensitive is false
+	if !caseSensitive {
+		prLabels = common.NormalizeArray(prLabels)
+		ignoreLabels = common.NormalizeArray(ignoreLabels)
+		selectLabels = common.NormalizeArray(selectLabels)
 	}
 
 	// If the pull request contains any of the ignore labels, it doesn't match

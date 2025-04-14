@@ -34,6 +34,7 @@ var (
 	combineBranchName   string
 	workingBranchSuffix string
 	dependabot          bool
+	caseSensitiveLabels bool
 )
 
 // NewRootCmd creates the root command for the gh-combine CLI
@@ -77,6 +78,7 @@ func NewRootCmd() *cobra.Command {
       # Filter PRs by labels
       gh combine owner/repo --labels dependencies           # PRs must have this single label
       gh combine owner/repo --labels security,dependencies  # PRs must have ALL these labels
+	  gh combine owner/repo --labels Dependencies --case-sensitive-labels # PRs must have this label, case-sensitive
       
       # Exclude PRs by labels
       gh combine owner/repo --ignore-labels wip         # Ignore PRs with this label
@@ -124,6 +126,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.Flags().StringVar(&reposFile, "file", "", "File containing repository names, one per line")
 	rootCmd.Flags().IntVar(&minimum, "minimum", 2, "Minimum number of PRs to combine")
 	rootCmd.Flags().StringVar(&defaultOwner, "owner", "", "Default owner for repositories (if not specified in repo name or missing from file inputs)")
+	rootCmd.Flags().BoolVar(&caseSensitiveLabels, "case-sensitive-labels", false, "Use case-sensitive label matching")
 
 	// Add deprecated flags for backward compatibility
 	// rootCmd.Flags().IntVar(&minimum, "min-combine", 2, "Minimum number of PRs to combine (deprecated, use --minimum)")
