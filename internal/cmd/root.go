@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cli/go-gh/v2/pkg/api"
@@ -350,7 +351,8 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 	}{client}
 
 	// Combine the PRs and collect stats
-	combined, mergeConflicts, combinedPRLink, err := CombinePRsWithStats(ctx, graphQlClient, restClientWrapper, repo, matchedPRs)
+	commandString := buildCommandString([]string{repo.String()})
+	combined, mergeConflicts, combinedPRLink, err := CombinePRsWithStats(ctx, graphQlClient, restClientWrapper, repo, matchedPRs, commandString)
 	if err != nil {
 		return fmt.Errorf("failed to combine PRs: %w", err)
 	}
@@ -419,4 +421,79 @@ func displayStatsSummary(stats *StatsCollector, outputFormat string) {
 	default:
 		displayPlainStats(stats)
 	}
+}
+
+// buildCommandString reconstructs the CLI command with all set flags and arguments
+func buildCommandString(args []string) string {
+	cmd := []string{"gh combine"}
+	cmd = append(cmd, args...)
+
+	if branchPrefix != "" {
+		cmd = append(cmd, "--branch-prefix", branchPrefix)
+	}
+	if branchSuffix != "" {
+		cmd = append(cmd, "--branch-suffix", branchSuffix)
+	}
+	if branchRegex != "" {
+		cmd = append(cmd, "--branch-regex", branchRegex)
+	}
+	if len(selectLabels) > 0 {
+		cmd = append(cmd, "--labels", strings.Join(selectLabels, ","))
+	}
+	if len(ignoreLabels) > 0 {
+		cmd = append(cmd, "--ignore-labels", strings.Join(ignoreLabels, ","))
+	}
+	if len(addLabels) > 0 {
+		cmd = append(cmd, "--add-labels", strings.Join(addLabels, ","))
+	}
+	if len(addAssignees) > 0 {
+		cmd = append(cmd, "--add-assignees", strings.Join(addAssignees, ","))
+	}
+	if requireCI {
+		cmd = append(cmd, "--require-ci")
+	}
+	if dependabot {
+		cmd = append(cmd, "--dependabot")
+	}
+	if mustBeApproved {
+		cmd = append(cmd, "--require-approved")
+	}
+	if autoclose {
+		cmd = append(cmd, "--autoclose")
+	}
+	if updateBranch {
+		cmd = append(cmd, "--update-branch")
+	}
+	if baseBranch != "main" && baseBranch != "" {
+		cmd = append(cmd, "--base-branch", baseBranch)
+	}
+	if combineBranchName != "combined-prs" && combineBranchName != "" {
+		cmd = append(cmd, "--combine-branch-name", combineBranchName)
+	}
+	if workingBranchSuffix != "-working" && workingBranchSuffix != "" {
+		cmd = append(cmd, "--working-branch-suffix", workingBranchSuffix)
+	}
+	if reposFile != "" {
+		cmd = append(cmd, "--file", reposFile)
+	}
+	if minimum != 2 {
+		cmd = append(cmd, "--minimum", fmt.Sprintf("%d", minimum))
+	}
+	if defaultOwner != "" {
+		cmd = append(cmd, "--owner", defaultOwner)
+	}
+	if caseSensitiveLabels {
+		cmd = append(cmd, "--case-sensitive-labels")
+	}
+	if noColor {
+		cmd = append(cmd, "--no-color")
+	}
+	if noStats {
+		cmd = append(cmd, "--no-stats")
+	}
+	if outputFormat != "table" && outputFormat != "" {
+		cmd = append(cmd, "--output", outputFormat)
+	}
+
+	return strings.Join(cmd, " ")
 }
