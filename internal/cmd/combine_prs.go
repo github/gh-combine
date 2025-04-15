@@ -193,7 +193,7 @@ func generatePRBody(combinedPRs, mergeFailedPRs []string, command string) string
 	}
 
 	body += "\n> Generated with [gh-combine](https://github.com/github/gh-combine)\n"
-	body += fmt.Sprintf("\nCommand used: `%s`", command)
+	body += fmt.Sprintf("\nCommand used:\n\n```bash\n%s\n```", command)
 
 	return body
 }
