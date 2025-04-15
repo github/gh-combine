@@ -24,7 +24,16 @@ type RESTClientInterface interface {
 func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, restClient RESTClientInterface, repo github.Repo, pulls github.Pulls, command string, dryRun bool) (combined []string, mergeConflicts []string, combinedPRLink string, err error) {
 	// Move variable definitions outside the conditional blocks
 	workingBranchName := combineBranchName + workingBranchSuffix
-	repoDefaultBranch := "main" // Default branch assumed for simulation
+
+	repoDefaultBranch, err := getDefaultBranch(ctx, restClient, repo)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to get default branch: %w", err)
+	}
+
+	baseBranchSHA, err := getBranchSHA(ctx, restClient, repo, repoDefaultBranch)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to get SHA of main branch: %w", err)
+	}
 
 	if dryRun {
 		Logger.Debug("Dry-run mode enabled. No changes will be made.")
@@ -33,16 +42,6 @@ func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, 
 
 	// Skip branch creation and deletion if dry-run is enabled
 	if !dryRun {
-		repoDefaultBranch, err = getDefaultBranch(ctx, restClient, repo)
-		if err != nil {
-			return nil, nil, "", fmt.Errorf("failed to get default branch: %w", err)
-		}
-
-		baseBranchSHA, err := getBranchSHA(ctx, restClient, repo, repoDefaultBranch)
-		if err != nil {
-			return nil, nil, "", fmt.Errorf("failed to get SHA of main branch: %w", err)
-		}
-
 		err = deleteBranch(ctx, restClient, repo, workingBranchName)
 		if err != nil {
 			Logger.Debug("Working branch not found, continuing", "branch", workingBranchName)
