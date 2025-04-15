@@ -82,9 +82,6 @@ func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, 
 		Logger.Warn("Failed to delete working branch", "branch", workingBranchName, "error", err)
 	}
 
-	// Example command string, replace with actual command logic
-	command := "gh combine owner/repo --labels deps,docs"
-
 	prBody := generatePRBody(combined, mergeConflicts, command)
 	prTitle := "Combined PRs"
 	prNumber, prErr := createPullRequestWithNumber(ctx, restClient, repo, prTitle, combineBranchName, repoDefaultBranch, prBody, addLabels, addAssignees)
