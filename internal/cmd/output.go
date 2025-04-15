@@ -87,29 +87,41 @@ func displayTableStats(stats *StatsCollector) {
 		}
 		if repoStat.SkippedCriteria > 0 {
 			dnmColor = yellow
-		}
+			}
+		
+		// Construct skipped text without color codes first to get proper width
 		mcRaw := fmt.Sprintf("%d", repoStat.SkippedMergeConf)
 		dnmRaw := fmt.Sprintf("%d", repoStat.SkippedCriteria)
-		skippedRaw := fmt.Sprintf("%s (MC), %s (DNM)", mcRaw, dnmRaw)
-		skippedPadded := fmt.Sprintf("%-*s", colWidths[2], skippedRaw)
-		mcIdx := strings.Index(skippedPadded, mcRaw)
-		dnmIdx := strings.Index(skippedPadded, dnmRaw)
-		skippedColored := skippedPadded
-		if mcIdx != -1 {
-			skippedColored = skippedColored[:mcIdx] + colorize(mcRaw, mcColor) + skippedColored[mcIdx+len(mcRaw):]
+		skippedPlain := fmt.Sprintf("%s (MC), %s (DNM)", mcRaw, dnmRaw)
+		
+		// Then add color codes for display
+		skippedDisplay := ""
+		if noColor {
+			skippedDisplay = skippedPlain
+		} else {
+			mcDisplay := mcColor + mcRaw + reset
+			dnmDisplay := dnmColor + dnmRaw + reset
+			skippedDisplay = fmt.Sprintf("%s (MC), %s (DNM)", mcDisplay, dnmDisplay)
 		}
-		if dnmIdx != -1 {
-			dnmIdx = strings.Index(skippedColored, dnmRaw)
-			skippedColored = skippedColored[:dnmIdx] + colorize(dnmRaw, dnmColor) + skippedColored[dnmIdx+len(dnmRaw):]
+		
+		// Ensure proper padding based on the plaintext width
+		paddingLen := colWidths[2] - len(skippedPlain)
+		padding := ""
+		if paddingLen > 0 {
+			padding = strings.Repeat(" ", paddingLen)
 		}
+		
 		statusColored := colorize(status, statusColor)
-		statusColored = fmt.Sprintf("%-*s", colWidths[3]+len(statusColored)-len(status), statusColored)
+		statusPadding := colWidths[3] - len(status)
+		if statusPadding > 0 {
+			statusColored += strings.Repeat(" ", statusPadding)
+		}
 
 		fmt.Printf(
-			"│ %-*s │ %s │ %s │ %s │\n",
+			"│ %-*s │ %*d │ %s%s │ %s │\n",
 			repoCol, repoStat.RepoName,
-			fmt.Sprintf("%*d", colWidths[1], repoStat.CombinedCount),
-			skippedColored,
+			colWidths[1], repoStat.CombinedCount,
+			skippedDisplay, padding,
 			statusColored,
 		)
 	}
@@ -119,12 +131,39 @@ func displayTableStats(stats *StatsCollector) {
 	summaryTop := "╭───────────────┬───────────────┬───────────────────────┬───────────────╮"
 	summaryHead := "│ Repos         │ Combined PRs  │ Skipped               │ Total PRs     │"
 	summarySep := "├───────────────┼───────────────┼───────────────────────┼───────────────┤"
-	skippedRaw := fmt.Sprintf("%d (MC), %d (DNM)", stats.PRsSkippedMergeConflict, stats.PRsSkippedCriteria)
+	
+	// Use the same approach for summary table to ensure consistency
+	mcSummaryRaw := fmt.Sprintf("%d", stats.PRsSkippedMergeConflict)
+	dnmSummaryRaw := fmt.Sprintf("%d", stats.PRsSkippedCriteria)
+	
+	skippedSummaryPlain := fmt.Sprintf("%s (MC), %s (DNM)", mcSummaryRaw, dnmSummaryRaw)
+	skippedSummaryDisplay := skippedSummaryPlain
+	if !noColor {
+		mcColor := green
+		dnmColor := green
+		if stats.PRsSkippedMergeConflict > 0 {
+			mcColor = yellow
+		}
+		if stats.PRsSkippedCriteria > 0 {
+			dnmColor = yellow
+		}
+		mcDisplay := mcColor + mcSummaryRaw + reset
+		dnmDisplay := dnmColor + dnmSummaryRaw + reset
+		skippedSummaryDisplay = fmt.Sprintf("%s (MC), %s (DNM)", mcDisplay, dnmDisplay)
+	}
+	
+	summarySkippedPadding := 21 - len(skippedSummaryPlain)
+	summaryPadding := ""
+	if summarySkippedPadding > 0 {
+		summaryPadding = strings.Repeat(" ", summarySkippedPadding)
+	}
+	
 	summaryRow := fmt.Sprintf(
-		"│ %-13d │ %-13d │ %-21s │ %-13d │",
+		"│ %-13d │ %-13d │ %s%s │ %-13d │",
 		stats.ReposProcessed,
 		stats.PRsCombined,
-		skippedRaw,
+		skippedSummaryDisplay,
+		summaryPadding,
 		len(stats.CombinedPRLinks),
 	)
 	summaryBot := "╰───────────────┴───────────────┴───────────────────────┴───────────────╯"
