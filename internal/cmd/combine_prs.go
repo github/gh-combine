@@ -21,7 +21,7 @@ type RESTClientInterface interface {
 }
 
 // CombinePRsWithStats combines PRs and returns stats for summary output
-func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, restClient RESTClientInterface, repo github.Repo, pulls github.Pulls) (combined []string, mergeConflicts []string, combinedPRLink string, err error) {
+func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, restClient RESTClientInterface, repo github.Repo, pulls github.Pulls, command string) (combined []string, mergeConflicts []string, combinedPRLink string, err error) {
 	workingBranchName := combineBranchName + workingBranchSuffix
 
 	repoDefaultBranch, err := getDefaultBranch(ctx, restClient, repo)
@@ -82,7 +82,10 @@ func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, 
 		Logger.Warn("Failed to delete working branch", "branch", workingBranchName, "error", err)
 	}
 
-	prBody := generatePRBody(combined, mergeConflicts)
+	// Example command string, replace with actual command logic
+	command := "gh combine owner/repo --labels deps,docs"
+
+	prBody := generatePRBody(combined, mergeConflicts, command)
 	prTitle := "Combined PRs"
 	prNumber, prErr := createPullRequestWithNumber(ctx, restClient, repo, prTitle, combineBranchName, repoDefaultBranch, prBody, addLabels, addAssignees)
 	if prErr != nil {
@@ -179,8 +182,8 @@ func getBranchSHA(ctx context.Context, client RESTClientInterface, repo github.R
 	return ref.Object.SHA, nil
 }
 
-// generatePRBody generates the body for the combined PR
-func generatePRBody(combinedPRs, mergeFailedPRs []string) string {
+// Updated generatePRBody to include the command used
+func generatePRBody(combinedPRs, mergeFailedPRs []string, command string) string {
 	body := "✅ The following pull requests have been successfully combined:\n"
 	for _, pr := range combinedPRs {
 		body += "- " + pr + "\n"
@@ -192,7 +195,8 @@ func generatePRBody(combinedPRs, mergeFailedPRs []string) string {
 		}
 	}
 
-	body += "\n> Generated with [gh-combine](https://github.com/github/gh-combine)"
+	body += "\n> Generated with [gh-combine](https://github.com/github/gh-combine)\n"
+	body += fmt.Sprintf("\nCommand used: `%s`", command)
 
 	return body
 }
