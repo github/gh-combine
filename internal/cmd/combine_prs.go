@@ -21,75 +21,90 @@ type RESTClientInterface interface {
 }
 
 // CombinePRsWithStats combines PRs and returns stats for summary output
-func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, restClient RESTClientInterface, repo github.Repo, pulls github.Pulls, command string) (combined []string, mergeConflicts []string, combinedPRLink string, err error) {
+func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, restClient RESTClientInterface, repo github.Repo, pulls github.Pulls, command string, dryRun bool) (combined []string, mergeConflicts []string, combinedPRLink string, err error) {
+	// Move variable definitions outside the conditional blocks
 	workingBranchName := combineBranchName + workingBranchSuffix
+	repoDefaultBranch := "main" // Default branch assumed for simulation
 
-	repoDefaultBranch, err := getDefaultBranch(ctx, restClient, repo)
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("failed to get default branch: %w", err)
+	if dryRun {
+		Logger.Debug("Dry-run mode enabled. No changes will be made.")
+		Logger.Debug("Simulating branch operations", "workingBranch", workingBranchName, "defaultBranch", repoDefaultBranch)
 	}
 
-	baseBranchSHA, err := getBranchSHA(ctx, restClient, repo, repoDefaultBranch)
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("failed to get SHA of main branch: %w", err)
-	}
-	// Delete any pre-existing working branch
-
-	// Delete any pre-existing working branch
-	err = deleteBranch(ctx, restClient, repo, workingBranchName)
-	if err != nil {
-		Logger.Debug("Working branch not found, continuing", "branch", workingBranchName)
-
-		// Delete any pre-existing combined branch
-	}
-
-	// Delete any pre-existing combined branch
-	err = deleteBranch(ctx, restClient, repo, combineBranchName)
-	if err != nil {
-		Logger.Debug("Combined branch not found, continuing", "branch", combineBranchName)
-	}
-
-	err = createBranch(ctx, restClient, repo, combineBranchName, baseBranchSHA)
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("failed to create combined branch: %w", err)
-	}
-	err = createBranch(ctx, restClient, repo, workingBranchName, baseBranchSHA)
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("failed to create working branch: %w", err)
-	}
-
-	for _, pr := range pulls {
-		err := mergeBranch(ctx, restClient, repo, workingBranchName, pr.Head.Ref)
+	// Skip branch creation and deletion if dry-run is enabled
+	if !dryRun {
+		repoDefaultBranch, err = getDefaultBranch(ctx, restClient, repo)
 		if err != nil {
-			if isMergeConflictError(err) {
-				Logger.Debug("Merge conflict", "branch", pr.Head.Ref, "error", err)
-			} else {
-				Logger.Warn("Failed to merge branch", "branch", pr.Head.Ref, "error", err)
-			}
-			mergeConflicts = append(mergeConflicts, fmt.Sprintf("#%d", pr.Number))
-		} else {
-			Logger.Debug("Merged branch", "branch", pr.Head.Ref)
-			combined = append(combined, fmt.Sprintf("#%d - %s", pr.Number, pr.Title))
+			return nil, nil, "", fmt.Errorf("failed to get default branch: %w", err)
+		}
+
+		baseBranchSHA, err := getBranchSHA(ctx, restClient, repo, repoDefaultBranch)
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("failed to get SHA of main branch: %w", err)
+		}
+
+		err = deleteBranch(ctx, restClient, repo, workingBranchName)
+		if err != nil {
+			Logger.Debug("Working branch not found, continuing", "branch", workingBranchName)
+		}
+
+		err = deleteBranch(ctx, restClient, repo, combineBranchName)
+		if err != nil {
+			Logger.Debug("Combined branch not found, continuing", "branch", combineBranchName)
+		}
+
+		err = createBranch(ctx, restClient, repo, combineBranchName, baseBranchSHA)
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("failed to create combined branch: %w", err)
+		}
+
+		err = createBranch(ctx, restClient, repo, workingBranchName, baseBranchSHA)
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("failed to create working branch: %w", err)
 		}
 	}
 
-	err = updateRef(ctx, restClient, repo, combineBranchName, workingBranchName)
-	if err != nil {
-		return combined, mergeConflicts, "", fmt.Errorf("failed to update combined branch: %w", err)
-	}
-	err = deleteBranch(ctx, restClient, repo, workingBranchName)
-	if err != nil {
-		Logger.Warn("Failed to delete working branch", "branch", workingBranchName, "error", err)
+	// Simulate merging PRs
+	for _, pr := range pulls {
+		if dryRun {
+			Logger.Debug("Simulating merge of branch", "branch", pr.Head.Ref)
+			combined = append(combined, fmt.Sprintf("#%d - %s", pr.Number, pr.Title))
+		} else {
+			err := mergeBranch(ctx, restClient, repo, workingBranchName, pr.Head.Ref)
+			if err != nil {
+				if isMergeConflictError(err) {
+					Logger.Debug("Merge conflict", "branch", pr.Head.Ref, "error", err)
+				} else {
+					Logger.Warn("Failed to merge branch", "branch", pr.Head.Ref, "error", err)
+				}
+				mergeConflicts = append(mergeConflicts, fmt.Sprintf("#%d", pr.Number))
+			} else {
+				Logger.Debug("Merged branch", "branch", pr.Head.Ref)
+				combined = append(combined, fmt.Sprintf("#%d - %s", pr.Number, pr.Title))
+			}
+		}
 	}
 
-	prBody := generatePRBody(combined, mergeConflicts, command)
-	prTitle := "Combined PRs"
-	prNumber, prErr := createPullRequestWithNumber(ctx, restClient, repo, prTitle, combineBranchName, repoDefaultBranch, prBody, addLabels, addAssignees)
-	if prErr != nil {
-		return combined, mergeConflicts, "", fmt.Errorf("failed to create combined PR: %w", prErr)
-	}
-	if prNumber > 0 {
-		combinedPRLink = fmt.Sprintf("https://github.com/%s/%s/pull/%d", repo.Owner, repo.Repo, prNumber)
+	if !dryRun {
+		err = updateRef(ctx, restClient, repo, combineBranchName, workingBranchName)
+		if err != nil {
+			return combined, mergeConflicts, "", fmt.Errorf("failed to update combined branch: %w", err)
+		}
+
+		err = deleteBranch(ctx, restClient, repo, workingBranchName)
+		if err != nil {
+			Logger.Warn("Failed to delete working branch", "branch", workingBranchName, "error", err)
+		}
+
+		prBody := generatePRBody(combined, mergeConflicts, command)
+		prTitle := "Combined PRs"
+		prNumber, prErr := createPullRequestWithNumber(ctx, restClient, repo, prTitle, combineBranchName, repoDefaultBranch, prBody, addLabels, addAssignees)
+		if prErr != nil {
+			return combined, mergeConflicts, "", fmt.Errorf("failed to create combined PR: %w", prErr)
+		}
+		if prNumber > 0 {
+			combinedPRLink = fmt.Sprintf("https://github.com/%s/%s/pull/%d", repo.Owner, repo.Repo, prNumber)
+		}
 	}
 
 	return combined, mergeConflicts, combinedPRLink, nil
