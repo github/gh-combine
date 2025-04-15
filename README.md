@@ -32,6 +32,10 @@ gh ext upgrade combine
 
 ## Usage 🚀
 
+### Demo 📹
+
+https://github.com/user-attachments/assets/e993e282-5182-4599-aca8-531a80ec124f
+
 ### Basic
 
 Basic usage of the `combine` command to combine multiple dependent pull requests into one for a given repository:
