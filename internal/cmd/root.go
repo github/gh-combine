@@ -339,9 +339,16 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 		RESTClientInterface
 	}{client}
 
-	// Combine the PRs and collect stats
 	commandString := buildCommandString([]string{repo.String()})
-	combined, mergeConflicts, combinedPRLink, err := CombinePRsWithStats(ctx, graphQlClient, restClientWrapper, repo, matchedPRs, commandString, dryRun)
+
+	opts := CombineOpts{
+		Noop:    dryRun,
+		Command: commandString,
+		Repo:    repo,
+		Pulls:   matchedPRs,
+	}
+
+	combined, mergeConflicts, combinedPRLink, err := CombinePRsWithStats(ctx, graphQlClient, restClientWrapper, opts)
 	if err != nil {
 		return fmt.Errorf("failed to combine PRs: %w", err)
 	}
