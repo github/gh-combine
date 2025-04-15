@@ -206,15 +206,3 @@ func pad(s string, n int) string {
 	}
 	return out
 }
-
-// truncate shortens a string to maxLen runes, adding … if truncated
-func truncate(s string, maxLen int) string {
-	runes := []rune(s)
-	if len(runes) <= maxLen {
-		return s
-	}
-	if maxLen <= 1 {
-		return string(runes[:maxLen])
-	}
-	return string(runes[:maxLen-1]) + "…"
-}
