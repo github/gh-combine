@@ -115,6 +115,7 @@ func NewRootCmd() *cobra.Command {
       gh combine owner/repo --add-assignees octocat,hubot        # Assign users to the new PR
     
       # Additional options
+	  gh combine owner/repo --dry-run                           # Simulate the actions without making any changes
       gh combine owner/repo --autoclose                         # Close source PRs when combined PR is merged
 	  gh combine owner/repo --base-branch main                  # Use a different base branch for the combined PR
 	  gh combine owner/repo --no-color                          # Disable color output

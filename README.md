@@ -50,6 +50,14 @@ Combine all open pull requests in a repository that are created by dependabot:
 gh combine owner/repo --dependabot
 ```
 
+### In Dry Run Mode
+
+You can run in dry run mode to see what would happen without actually creating a pull request or combining any pull requests:
+
+```bash
+gh combine owner/repo --dry-run
+```
+
 ### With Passing CI
 
 Combine multiple pull requests together but only if their CI checks are passing:
