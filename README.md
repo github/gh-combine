@@ -8,6 +8,8 @@
 
 A gh cli extension to automatically combine multiple pull requests into one.
 
+![example](./docs/assets/example.png)
+
 ## About ⭐
 
 This project is a gh cli extension that is used to combine multiple pull requests into one. It is inspired by the [github/combine-prs](https://github.com/github/combine-prs) Action but with a focus on the gh cli.
