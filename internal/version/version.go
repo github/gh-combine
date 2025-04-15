@@ -13,8 +13,16 @@ var (
 
 const template = "%s (%s) built at %s\nhttps://github.com/github/gh-combine/releases/tag/%s"
 
+// buildInfoReader is a function type that can be mocked in tests
+var buildInfoReader = defaultBuildInfoReader
+
+// defaultBuildInfoReader is the actual implementation using debug.ReadBuildInfo
+func defaultBuildInfoReader() (*debug.BuildInfo, bool) {
+	return debug.ReadBuildInfo()
+}
+
 func String() string {
-	info, ok := debug.ReadBuildInfo()
+	info, ok := buildInfoReader()
 
 	if ok {
 		for _, setting := range info.Settings {
