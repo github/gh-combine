@@ -272,7 +272,7 @@ func TestBranchMatchesCriteria(t *testing.T) {
 			origBranchPrefix := branchPrefix
 			origBranchSuffix := branchSuffix
 			origBranchRegex := branchRegex
-			
+
 			// Restore original values after test
 			defer func() {
 				combineBranchName = origCombineBranchName
