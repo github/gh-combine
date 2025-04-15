@@ -400,17 +400,17 @@ func TestPrMatchesCriteria(t *testing.T) {
 
 	// Test cases
 	tests := []struct {
-		name              string
-		branch            string
-		prLabels          []string
-		combineBranch     string
-		ignoreLabelsVal   []string
-		selectLabelsVal   []string
-		caseSensitiveVal  bool
-		branchPrefixVal   string
-		branchSuffixVal   string
-		branchRegexVal    string
-		want              bool
+		name             string
+		branch           string
+		prLabels         []string
+		combineBranch    string
+		ignoreLabelsVal  []string
+		selectLabelsVal  []string
+		caseSensitiveVal bool
+		branchPrefixVal  string
+		branchSuffixVal  string
+		branchRegexVal   string
+		want             bool
 	}{
 		{
 			name:            "All criteria match",
@@ -502,19 +502,6 @@ func TestPrMatchesCriteria(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Mock GraphQL client for testing
-type mockGraphQLClient struct {
-	response interface{}
-	err      error
-}
-
-func (m *mockGraphQLClient) Query(name string, query interface{}, variables map[string]interface{}) error {
-	if m.err != nil {
-		return m.err
-	}
-	return nil
 }
 
 func TestIsCIPassing(t *testing.T) {
@@ -1033,18 +1020,18 @@ func TestPrMeetsRequirements(t *testing.T) {
 	// Save original global variables
 	origRequireCI := requireCI
 	origMustBeApproved := mustBeApproved
-	
+
 	// Restore original values after test
 	defer func() {
 		requireCI = origRequireCI
 		mustBeApproved = origMustBeApproved
 	}()
-	
+
 	// Only test the simple case where no requirements are specified
 	t.Run("No requirements specified", func(t *testing.T) {
 		requireCI = false
 		mustBeApproved = false
-		
+
 		// Skip this test since we can't easily create a mock graphql client
 		// The logic is simple enough that we know it would return true when both flags are false
 		t.Skip("Skipping test that requires a real GraphQL client")
