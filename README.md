@@ -34,6 +34,20 @@ gh ext upgrade combine
 
 ## Usage 🚀
 
+Before we get into the usage, there are a few key concepts to understand:
+
+- **Combining**: This is the process of taking multiple pull requests and combining them into one. This is done by creating a new pull request that contains the changes from all the combined pull requests.
+- **Filtering**: If you run this CLI with no flags, it will attempt to combine all open pull requests in the repository. This is not always what you want. You can use the various flags to filter the pull requests that are combined. For example, you can filter by label, branch name, etc. See the `--help` output for more information on the available flags.
+
+It is also important to understand what the output looks like. By default, the output is a table that shows the following information:
+
+- Shows the repos that were operated on
+- Shows the number of pull requests that were combined per repo
+- Shows the number of total _combined_ pull requests that were created
+- Shows the number of pull requests that were **skipped** (not combined)
+  - **MC**: Merge Conflict - Means that the pull request could not be merged into the combined pull request due to a merge conflict
+  - **DNM**: Did not Match - Means that the pull request did not match the filters (criteria) that were applied
+
 ### Demo 📹
 
 https://github.com/user-attachments/assets/e993e282-5182-4599-aca8-531a80ec124f
