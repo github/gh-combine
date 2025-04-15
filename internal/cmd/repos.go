@@ -4,68 +4,83 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/github/gh-combine/internal/github"
 )
 
-// ParseRepositories parses repository names from arguments or file with support for default owner
-func ParseRepositories(args []string, reposFile string, defaultOwner string) ([]string, error) {
-	// Explicitly initialize repos as an empty slice
-	repos := []string{}
+var (
+	ErrEmptyRepositoriesFilePath = fmt.Errorf("empty repositories file path")
+)
 
-	// If both args and reposFile are empty, return an empty slice
+func ParseRepositories(args []string, path string) ([]github.Repo, error) {
 	if len(args) == 0 && reposFile == "" {
-		return repos, nil
+		return nil, nil
 	}
 
-	// Parse from command line arguments
-	if len(args) > 0 {
-		// Check if repos are comma-separated
-		for _, arg := range args {
-			if strings.Contains(arg, ",") {
-				splitRepos := strings.Split(arg, ",")
-				for _, repo := range splitRepos {
-					if trimmedRepo := strings.TrimSpace(repo); trimmedRepo != "" {
-						repos = append(repos, applyDefaultOwner(trimmedRepo, defaultOwner))
-					}
-				}
-			} else {
-				repos = append(repos, applyDefaultOwner(arg, defaultOwner))
-			}
-		}
+	argsRepos, err := parseRepositoriesArgs(args)
+	if err != nil {
+		return nil, err
 	}
 
-	// Parse from file if specified
-	if reposFile != "" {
-		fileContent, err := os.ReadFile(reposFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read repositories file: %w", err)
-		}
+	fileRepos, err := parseRepositoriesFile(path)
+	if err != nil {
+		return nil, err
+	}
 
-		lines := strings.Split(string(fileContent), "\n")
-		for _, line := range lines {
-			// Trim whitespace and ignore comments
-			trimmedLine := strings.TrimSpace(line)
-			if trimmedLine == "" || strings.HasPrefix(trimmedLine, "#") {
-				continue
+	return append(argsRepos, fileRepos...), nil
+}
+
+func parseRepositoriesArgs(args []string) ([]github.Repo, error) {
+	repos := []github.Repo{}
+
+	for _, arg := range args {
+		for _, rawRepo := range strings.Split(arg, ",") {
+
+			repo, err := github.ParseRepo(rawRepo)
+			if err != nil {
+				return nil, err
 			}
 
-			// Remove inline comments
-			if idx := strings.Index(trimmedLine, "#"); idx != -1 {
-				trimmedLine = strings.TrimSpace(trimmedLine[:idx])
-			}
-
-			if trimmedLine != "" {
-				repos = append(repos, applyDefaultOwner(trimmedLine, defaultOwner))
-			}
+			repos = append(repos, repo)
 		}
 	}
 
 	return repos, nil
 }
 
-// applyDefaultOwner adds the default owner to a repo name if it doesn't already have an owner
-func applyDefaultOwner(repo string, defaultOwner string) string {
-	if defaultOwner == "" || strings.Contains(repo, "/") {
-		return repo
+// TODO: this should be removed to accept `gh-combine < repos` instead.
+func parseRepositoriesFile(path string) ([]github.Repo, error) {
+	if path == "" {
+		return nil, nil
 	}
-	return defaultOwner + "/" + repo
+
+	repos := []github.Repo{}
+
+	fileContent, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read repositories file %s: %w", path, err)
+	}
+
+	lines := strings.Split(string(fileContent), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Remove inline comments
+		if idx := strings.Index(line, "#"); idx != -1 {
+			line = strings.TrimSpace(line[:idx])
+		}
+
+		repo, err := github.ParseRepo(line)
+		if err != nil {
+			return nil, err
+		}
+
+		repos = append(repos, repo)
+	}
+
+	return repos, nil
 }

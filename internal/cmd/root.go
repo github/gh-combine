@@ -31,7 +31,6 @@ var (
 	updateBranch        bool
 	reposFile           string
 	minimum             int
-	defaultOwner        string
 	baseBranch          string
 	combineBranchName   string
 	workingBranchSuffix string
@@ -88,12 +87,6 @@ func NewRootCmd() *cobra.Command {
 	  # Multiple repositories (no commas)
 	  gh combine octocat/repo1 octocat/repo2
       
-      # Using default owner for repositories
-      gh combine --owner octocat repo1 repo2
-
-	  # Using default owner for only some repositories
-	  gh combine --owner octocat repo1 octocat/repo2
-    
       # Using a file with repository names (one per line: owner/repo format)
       gh combine --file repos.txt
     
@@ -157,7 +150,6 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.Flags().StringVar(&workingBranchSuffix, "working-branch-suffix", "-working", "Suffix of the working branch")
 	rootCmd.Flags().StringVar(&reposFile, "file", "", "File containing repository names, one per line")
 	rootCmd.Flags().IntVar(&minimum, "minimum", 2, "Minimum number of PRs to combine")
-	rootCmd.Flags().StringVar(&defaultOwner, "owner", "", "Default owner for repositories (if not specified in repo name or missing from file inputs)")
 	rootCmd.Flags().BoolVar(&caseSensitiveLabels, "case-sensitive-labels", false, "Use case-sensitive label matching")
 	rootCmd.Flags().BoolVar(&noColor, "no-color", false, "Disable color output")
 	rootCmd.Flags().BoolVar(&noStats, "no-stats", false, "Disable stats summary display")
@@ -198,7 +190,7 @@ func runCombine(cmd *cobra.Command, args []string) error {
 	defer spinner.Stop()
 
 	// Parse repositories from args or file
-	repos, err := ParseRepositories(args, reposFile, defaultOwner)
+	repos, err := ParseRepositories(args, reposFile)
 	if err != nil {
 		return fmt.Errorf("failed to parse repositories: %w", err)
 	}
@@ -227,7 +219,7 @@ func runCombine(cmd *cobra.Command, args []string) error {
 }
 
 // executeCombineCommand performs the actual API calls and processing
-func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string, stats *StatsCollector) error {
+func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []github.Repo, stats *StatsCollector) error {
 	// Create GitHub API client
 	restClient, err := api.DefaultRESTClient()
 	if err != nil {
@@ -240,20 +232,14 @@ func executeCombineCommand(ctx context.Context, spinner *Spinner, repos []string
 		return fmt.Errorf("failed to create GraphQLClient client: %w", err)
 	}
 
-	for _, repoString := range repos {
+	for _, repo := range repos {
+
 		// Check if context was cancelled (CTRL+C pressed)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 			// Continue processing
-		}
-
-		spinner.UpdateMessage("Parsing " + repoString)
-
-		repo, err := github.ParseRepo(repoString)
-		if err != nil {
-			return fmt.Errorf("failed to parse repo: %w", err)
 		}
 
 		spinner.UpdateMessage("Processing " + repo.String())
@@ -478,9 +464,6 @@ func buildCommandString(args []string) string {
 	}
 	if minimum != 2 {
 		cmd = append(cmd, "--minimum", fmt.Sprintf("%d", minimum))
-	}
-	if defaultOwner != "" {
-		cmd = append(cmd, "--owner", defaultOwner)
 	}
 	if caseSensitiveLabels {
 		cmd = append(cmd, "--case-sensitive-labels")
