@@ -236,14 +236,20 @@ func displaySummaryTable(stats *StatsCollector) {
 		21, // Fixed width for the skipped column
 	)
 
+	summaryRowPRCount := interface{}(len(stats.CombinedPRLinks))
+
+	if summaryRowPRCount == 0 && dryRun {
+		summaryRowPRCount = "DRY RUN"
+	}
+
 	// Generate the summary row
 	summaryRow := fmt.Sprintf(
-		"│ %-13d │ %-13d │ %s%s │ %-13d │",
+		"│ %-13d │ %-13d │ %s%s │ %-13v │",
 		stats.ReposProcessed,
 		stats.PRsCombined,
 		skippedSummaryText,
 		summaryPadding,
-		len(stats.CombinedPRLinks),
+		summaryRowPRCount,
 	)
 
 	// Print the summary table

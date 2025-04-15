@@ -39,6 +39,7 @@ var (
 	noColor             bool
 	noStats             bool
 	outputFormat        string
+	dryRun              bool
 )
 
 // StatsCollector tracks stats for the CLI run
@@ -114,6 +115,7 @@ func NewRootCmd() *cobra.Command {
       gh combine owner/repo --add-assignees octocat,hubot        # Assign users to the new PR
     
       # Additional options
+	  gh combine owner/repo --dry-run                           # Simulate the actions without making any changes
       gh combine owner/repo --autoclose                         # Close source PRs when combined PR is merged
 	  gh combine owner/repo --base-branch main                  # Use a different base branch for the combined PR
 	  gh combine owner/repo --no-color                          # Disable color output
@@ -154,6 +156,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.Flags().BoolVar(&noColor, "no-color", false, "Disable color output")
 	rootCmd.Flags().BoolVar(&noStats, "no-stats", false, "Disable stats summary display")
 	rootCmd.Flags().StringVar(&outputFormat, "output", "table", "Output format: table, plain, or json")
+	rootCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Simulate the actions without making any changes")
 
 	// Add deprecated flags for backward compatibility
 	// rootCmd.Flags().IntVar(&minimum, "min-combine", 2, "Minimum number of PRs to combine (deprecated, use --minimum)")
@@ -336,9 +339,16 @@ func processRepository(ctx context.Context, client *api.RESTClient, graphQlClien
 		RESTClientInterface
 	}{client}
 
-	// Combine the PRs and collect stats
 	commandString := buildCommandString([]string{repo.String()})
-	combined, mergeConflicts, combinedPRLink, err := CombinePRsWithStats(ctx, graphQlClient, restClientWrapper, repo, matchedPRs, commandString)
+
+	opts := CombineOpts{
+		Noop:    dryRun,
+		Command: commandString,
+		Repo:    repo,
+		Pulls:   matchedPRs,
+	}
+
+	combined, mergeConflicts, combinedPRLink, err := CombinePRsWithStats(ctx, graphQlClient, restClientWrapper, opts)
 	if err != nil {
 		return fmt.Errorf("failed to combine PRs: %w", err)
 	}
@@ -476,6 +486,9 @@ func buildCommandString(args []string) string {
 	}
 	if outputFormat != "table" && outputFormat != "" {
 		cmd = append(cmd, "--output", outputFormat)
+	}
+	if dryRun {
+		cmd = append(cmd, "--dry-run")
 	}
 
 	return strings.Join(cmd, " ")
