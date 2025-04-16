@@ -71,10 +71,12 @@ func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, 
 		}
 	}
 
+	combinedPrNumbers := []string{}
 	for _, pr := range opts.Pulls {
 		if opts.Noop {
 			Logger.Debug("Simulating merge of branch", "branch", pr.Head.Ref)
 			combined = append(combined, fmt.Sprintf("#%d - %s", pr.Number, pr.Title))
+			combinedPrNumbers = append(combinedPrNumbers, fmt.Sprintf("#%d", pr.Number))
 		} else {
 			err := mergeBranch(ctx, restClient, opts.Repo, workingBranchName, pr.Head.Ref)
 			if err != nil {
@@ -87,6 +89,7 @@ func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, 
 			} else {
 				Logger.Debug("Merged branch", "branch", pr.Head.Ref)
 				combined = append(combined, fmt.Sprintf("#%d - %s", pr.Number, pr.Title))
+				combinedPrNumbers = append(combinedPrNumbers, fmt.Sprintf("#%d", pr.Number))
 			}
 		}
 	}
@@ -102,7 +105,7 @@ func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, 
 			Logger.Warn("Failed to delete working branch", "branch", workingBranchName, "error", err)
 		}
 
-		prBody := generatePRBody(combined, mergeConflicts, opts.Command)
+		prBody := generatePRBody(combinedPrNumbers, mergeConflicts, opts.Command)
 		prTitle := "Combined PRs"
 		prNumber, prErr := createPullRequestWithNumber(ctx, restClient, opts.Repo, prTitle, combineBranchName, repoDefaultBranch, prBody, addLabels, addAssignees)
 		if prErr != nil {
@@ -200,12 +203,19 @@ func getBranchSHA(ctx context.Context, client RESTClientInterface, repo github.R
 	return ref.Object.SHA, nil
 }
 
-// Updated generatePRBody to include the command used
-func generatePRBody(combinedPRs, mergeFailedPRs []string, command string) string {
+// Updated generatePRBody to include the command used and handle PR autoclose logic
+// combinedPrNumbers looks like ["#1", "#2"]
+// mergeFailedPRs looks like ["#3", "#4"]
+func generatePRBody(combinedPrNumbers []string, mergeFailedPRs []string, command string) string {
 	body := "✅ The following pull requests have been successfully combined:\n"
-	for _, pr := range combinedPRs {
-		body += "- " + pr + "\n"
+	for _, prNumber := range combinedPrNumbers {
+		prRef := prNumber
+		if !noAutoclose {
+			prRef = "closes: " + prNumber
+		}
+		body += "- " + prRef + "\n"
 	}
+
 	if len(mergeFailedPRs) > 0 {
 		body += "\n⚠️ The following pull requests could not be merged due to conflicts:\n"
 		for _, pr := range mergeFailedPRs {
