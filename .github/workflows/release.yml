@@ -36,4 +36,4 @@ jobs:
 
       - uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # pin@v2
         with:
-          subject-path: 'dist/'
+          subject-path: "dist/"
