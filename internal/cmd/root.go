@@ -125,7 +125,8 @@ func NewRootCmd() *cobra.Command {
 	  gh combine owner/repo --output table                      # Output stats in table format (default)
 	  gh combine owner/repo --combine-branch-name combined-prs  # Use a different name for the combined PR branch
 	  gh combine owner/repo --working-branch-suffix -working    # Use a different suffix for the working branch
-      gh combine owner/repo --update-branch                     # Update the branch of the combined PR`,
+      gh combine owner/repo --update-branch                     # Update the branch of the combined PR
+	  gh combine --version                                      # Display version information`,
 		RunE: runCombine,
 	}
 
@@ -158,11 +159,8 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.Flags().StringVar(&outputFormat, "output", "table", "Output format: table, plain, or json")
 	rootCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Simulate the actions without making any changes")
 
-	// Add deprecated flags for backward compatibility
-	// rootCmd.Flags().IntVar(&minimum, "min-combine", 2, "Minimum number of PRs to combine (deprecated, use --minimum)")
-
-	// Mark deprecated flags
-	// rootCmd.Flags().MarkDeprecated("min-combine", "use --minimum instead")
+	// Add version flag
+	rootCmd.Flags().BoolP("version", "v", false, "Display version information")
 
 	return rootCmd
 }
@@ -177,6 +175,15 @@ func Run() error {
 func runCombine(cmd *cobra.Command, args []string) error {
 	ctx, cancel := SetupSignalContext()
 	defer cancel()
+
+	// Check for version flag before executing the command
+	if cmd.Flags().Lookup("version") != nil {
+		versionFlagValue, err := cmd.Flags().GetBool("version")
+		if err == nil && versionFlagValue {
+			fmt.Println(version.String())
+			return nil
+		}
+	}
 
 	Logger.Debug("starting gh-combine", "version", version.String())
 
@@ -425,7 +432,7 @@ func buildCommandString(args []string) string {
 	cmd = append(cmd, args...)
 
 	// Only add branch-prefix if it's not due to the dependabot flag
-	if branchPrefix != "" && !(dependabot && branchPrefix == "dependabot/") {
+	if branchPrefix != "" && (!dependabot || branchPrefix != "dependabot/") {
 		cmd = append(cmd, "--branch-prefix", branchPrefix)
 	}
 	if branchSuffix != "" {

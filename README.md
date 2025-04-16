@@ -180,6 +180,12 @@ gh combine owner/repo --ignore-labels wip,dependencies
 gh combine owner/repo --update-branch
 ```
 
+### Display Version Information
+
+```bash
+gh combine --version
+```
+
 ### Disable Stats Output
 
 ```bash
