@@ -27,7 +27,7 @@ var (
 
 	requireCI           bool
 	mustBeApproved      bool
-	autoclose           bool
+	noAutoclose         bool
 	updateBranch        bool
 	reposFile           string
 	minimum             int
@@ -116,7 +116,7 @@ func NewRootCmd() *cobra.Command {
     
       # Additional options
 	  gh combine owner/repo --dry-run                           # Simulate the actions without making any changes
-      gh combine owner/repo --autoclose                         # Close source PRs when combined PR is merged
+      gh combine owner/repo --no-autoclose                      # Do not auto-close source PRs when combined PR is merged via the closes keyword
 	  gh combine owner/repo --base-branch main                  # Use a different base branch for the combined PR
 	  gh combine owner/repo --no-color                          # Disable color output
 	  gh combine owner/repo --no-stats                          # Disable stats summary display
@@ -145,7 +145,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.Flags().BoolVar(&requireCI, "require-ci", false, "Only include PRs with passing CI checks")
 	rootCmd.Flags().BoolVar(&dependabot, "dependabot", false, "Only include PRs with the dependabot branch prefix")
 	rootCmd.Flags().BoolVar(&mustBeApproved, "require-approved", false, "Only include PRs that have been approved")
-	rootCmd.Flags().BoolVar(&autoclose, "autoclose", false, "Close source PRs when combined PR is merged")
+	rootCmd.Flags().BoolVar(&noAutoclose, "no-autoclose", false, "Do not auto-close source PRs when combined PR is merged")
 	rootCmd.Flags().BoolVar(&updateBranch, "update-branch", false, "Update the branch of the combined PR if possible")
 	rootCmd.Flags().StringVar(&baseBranch, "base-branch", "main", "Base branch for the combined PR (default: main)")
 	rootCmd.Flags().StringVar(&combineBranchName, "combine-branch-name", "combined-prs", "Name of the combined PR branch")
@@ -454,8 +454,8 @@ func buildCommandString(args []string) string {
 	if mustBeApproved {
 		cmd = append(cmd, "--require-approved")
 	}
-	if autoclose {
-		cmd = append(cmd, "--autoclose")
+	if noAutoclose {
+		cmd = append(cmd, "--no-autoclose")
 	}
 	if updateBranch {
 		cmd = append(cmd, "--update-branch")

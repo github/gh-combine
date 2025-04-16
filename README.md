@@ -126,6 +126,14 @@ By using the `--minimum` flag you can require a minimum number of pull requests 
 gh combine owner/repo --minimum 3
 ```
 
+### Do Not Auto-Close Linked PRs
+
+By default, the source pull requests that are combined into the new pull request will be automatically closed when the combined Pr merges by adding the `closes` keyword to the new pull request. This can be disabled by using the `--no-autoclose` flag.
+
+```bash
+gh combine owner/repo --no-autoclose
+```
+
 ### Only Combine Pull Requests that match a given Label(s)
 
 ```bash
