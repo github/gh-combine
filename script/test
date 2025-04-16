@@ -6,5 +6,5 @@ set -e
 if ! command -v tparse &> /dev/null; then
   go test -v -cover ./...
 else
-  set -o pipefail && go test -json ./... | tparse -all -trimpath github.com/github/
+  set -o pipefail && go test -cover -coverprofile=coverage.out -json ./... | tparse -all -trimpath github.com/github/
 fi
