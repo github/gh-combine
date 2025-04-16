@@ -424,7 +424,8 @@ func buildCommandString(args []string) string {
 	cmd := []string{"gh combine"}
 	cmd = append(cmd, args...)
 
-	if branchPrefix != "" {
+	// Only add branch-prefix if it's not due to the dependabot flag
+	if branchPrefix != "" && !(dependabot && branchPrefix == "dependabot/") {
 		cmd = append(cmd, "--branch-prefix", branchPrefix)
 	}
 	if branchSuffix != "" {
