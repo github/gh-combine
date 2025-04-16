@@ -29,3 +29,5 @@ changelog:
 
 release:
   draft: false
+
+dist: "./dist"
