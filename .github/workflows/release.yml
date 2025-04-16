@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -14,13 +16,13 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # pin@v4
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: setup go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # pin@v5
         with:
           go-version-file: "go.mod"
           cache: false
@@ -31,3 +33,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # pin@v2
+        with:
+          subject-path: 'dist/'
