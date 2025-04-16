@@ -212,6 +212,15 @@ gh combine owner/repo --no-color
 LOG_LEVEL=DEBUG gh combine owner/repo
 ```
 
+## Verifying Release Binaries
+
+This project uses [goreleaser](https://goreleaser.com/) to build binaries and [actions/attest-build-provenance](https://github.com/actions/attest-build-provenance) to publish the provenance of the release.
+
+You can verify the release binaries by following these steps:
+
+1. Download a release from the [releases page](https://github.com/github/gh-combine/releases).
+2. Verify it `gh attestation verify --owner github ~/Downloads/darwin-arm64` (an example for darwin-arm64).
+
 ---
 
 Run `gh combine --help` for more information and full command/options usage.
