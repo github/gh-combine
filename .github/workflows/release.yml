@@ -12,6 +12,8 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
+    outputs:
+      artifact-id: ${{ steps.upload-artifact.outputs.artifact-id }}
 
     steps:
       - name: checkout
@@ -35,6 +37,7 @@ jobs:
 
       - name: upload artifact
         uses: actions/upload-artifact@4.6.2
+        id: upload-artifact
         with:
           path: dist/
 
@@ -46,10 +49,12 @@ jobs:
       contents: read
     uses: github/salsa/.github/workflows/sign-artifact.yml@main
     with:
+      artifact-ids: ${{ needs.release.outputs.artifact-id }}
       artifact-path: "."
 
   verify:
-    needs: sign
+    needs: [release, sign]
     uses: github/salsa/.github/workflows/verify.yml@main
     with:
+      artifact-ids: ${{ needs.release.outputs.artifact-id }}
       artifact-path: "."
