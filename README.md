@@ -5,6 +5,7 @@
 [![lint](https://github.com/github/gh-combine/actions/workflows/lint.yml/badge.svg)](https://github.com/github/gh-combine/actions/workflows/lint.yml)
 [![golangci-lint](https://github.com/github/gh-combine/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/github/gh-combine/actions/workflows/golangci-lint.yml)
 [![release](https://github.com/github/gh-combine/actions/workflows/release.yml/badge.svg)](https://github.com/github/gh-combine/actions/workflows/release.yml)
+![slsa-level3](docs/assets/slsa-level3.svg)
 
 A gh cli extension to automatically combine multiple pull requests into one.
 
