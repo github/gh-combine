@@ -5,13 +5,12 @@ on:
     tags:
       - "*"
 
-permissions:
-  contents: write
-  id-token: write
-  attestations: write
+permissions: {}
 
 jobs:
   release:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
 
     steps:
@@ -34,6 +33,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # pin@v2
+      - name: upload artifact
+        uses: actions/upload-artifact@4.6.2
         with:
-          subject-path: "dist/"
+          name: gh-combine
+          path: dist/
+
+  sign:
+    needs: release
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+    uses: github/salsa/.github/workflows/sign-artifact.yml@main
+    with:
+      name: gh-combine
+      artifact-path: "dist/"
+
+  verify:
+    needs: sign
+    uses: github/salsa/.github/workflows/verify.yml@main
+    with:
+      name: gh-combine
+      artifact-path: dist/
