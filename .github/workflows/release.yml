@@ -46,10 +46,10 @@ jobs:
       contents: read
     uses: github/salsa/.github/workflows/sign-artifact.yml@main
     with:
-      artifact-path: dist/
+      artifact-path: "."
 
   verify:
     needs: sign
     uses: github/salsa/.github/workflows/verify.yml@main
     with:
-      artifact-path: dist/
+      artifact-path: "."
