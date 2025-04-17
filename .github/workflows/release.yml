@@ -53,6 +53,7 @@ jobs:
       artifact-path: "."
 
   verify:
+    permissions: {}
     needs: [release, sign]
     uses: github/salsa/.github/workflows/verify.yml@main
     with:
