@@ -48,7 +48,7 @@ jobs:
     uses: github/salsa/.github/workflows/sign-artifact.yml@main
     with:
       name: gh-combine
-      artifact-path: "dist/"
+      artifact-path: dist/
 
   verify:
     needs: sign
