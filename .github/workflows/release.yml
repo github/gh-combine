@@ -74,4 +74,16 @@ jobs:
           REPO: ${{ github.event.repository.name }}
           ARTIFACT_PATH: "."
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh attestation verify "$ARTIFACT_PATH" --repo ${OWNER}/${REPO} --signer-workflow ${OWNER}/${REPO}/.github/workflows/release.yml
+        run: |
+          echo "Scanning for files in $ARTIFACT_PATH"
+
+          # Find all regular files in the artifact path recursively
+          find "$ARTIFACT_PATH" -type f | while read -r file; do
+            echo "Verifying file: $file"
+            
+            # Log the command that will be executed
+            echo "Executing command: gh attestation verify \"$file\" --repo ${OWNER}/${REPO} --signer-workflow ${OWNER}/${REPO}/.github/workflows/release.yml"
+            
+            # Run the command
+            gh attestation verify "$file" --repo ${OWNER}/${REPO} --signer-workflow ${OWNER}/${REPO}/.github/workflows/release.yml
+          done
