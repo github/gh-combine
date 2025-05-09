@@ -1,12 +1,11 @@
 package cmd
 
 import (
+	"sync"
 	"testing"
 )
 
 func TestLabelsMatch(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name          string
 		prLabels      []string
@@ -147,19 +146,10 @@ func TestLabelsMatch(t *testing.T) {
 			caseSensitive: true,
 		},
 	}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 
-			// Save the original value of caseSensitiveLabels
-			originalCaseSensitive := caseSensitiveLabels
-			defer func() { caseSensitiveLabels = originalCaseSensitive }() // Restore after test
-
-			// Set caseSensitiveLabels for this test
-			caseSensitiveLabels = test.caseSensitive
-
-			// Run the function
+			// Run the function, passing the caseSensitive parameter directly
 			got := labelsMatch(test.prLabels, test.ignoreLabels, test.selectLabels, test.caseSensitive)
 			if got != test.want {
 				t.Errorf("Test %q failed: want %v, got %v", test.name, test.want, got)
@@ -356,7 +346,13 @@ func TestPrMatchesCriteriaWithMocks(t *testing.T) {
 }
 
 func TestPrMatchesCriteria(t *testing.T) {
+	// Since this test changes global state, don't use t.Parallel()
+
+	// Create mutex to protect access to global variables
+	var mutex sync.Mutex
+
 	// Save original values of global variables
+	mutex.Lock()
 	origIgnoreLabels := ignoreLabels
 	origSelectLabels := selectLabels
 	origCaseSensitiveLabels := caseSensitiveLabels
@@ -364,9 +360,11 @@ func TestPrMatchesCriteria(t *testing.T) {
 	origBranchPrefix := branchPrefix
 	origBranchSuffix := branchSuffix
 	origBranchRegex := branchRegex
+	mutex.Unlock()
 
 	// Restore original values after test
 	defer func() {
+		mutex.Lock()
 		ignoreLabels = origIgnoreLabels
 		selectLabels = origSelectLabels
 		caseSensitiveLabels = origCaseSensitiveLabels
@@ -374,6 +372,7 @@ func TestPrMatchesCriteria(t *testing.T) {
 		branchPrefix = origBranchPrefix
 		branchSuffix = origBranchSuffix
 		branchRegex = origBranchRegex
+		mutex.Unlock()
 	}()
 
 	// Test cases

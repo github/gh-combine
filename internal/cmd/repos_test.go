@@ -71,7 +71,6 @@ func TestParseRepositoriesArgs(t *testing.T) {
 }
 
 func TestParseRepositoriesFile(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		content string
 		want    []github.Repo

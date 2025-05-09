@@ -2,9 +2,11 @@
 
 set -e
 
+count=10
+
 # if the tparse binary is not found, don't use it
 if ! command -v tparse &> /dev/null; then
-  go test -v -cover -coverprofile=coverage.out ./...
+  go test -race -count $count -v -cover -coverprofile=coverage.out ./...
 else
-  set -o pipefail && go test -cover -coverprofile=coverage.out -json ./... | tparse -smallscreen -all -trimpath github.com/github/
+  set -o pipefail && go test -race -count $count -cover -coverprofile=coverage.out -json ./... | tparse -smallscreen -all -trimpath github.com/github/
 fi
