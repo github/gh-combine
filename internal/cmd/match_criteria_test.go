@@ -267,7 +267,7 @@ func TestBranchMatchesCriteria(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel() // Parallelize at the subtest level, each with their own local variables
 
-			 // Run the function
+			// Run the function
 			got := branchMatchesCriteria(test.branch, test.combineBranch, test.prefix, test.suffix, test.regex)
 
 			// Check the result
