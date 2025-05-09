@@ -15,7 +15,7 @@ import (
 // checks if a PR matches all filtering criteria
 func PrMatchesCriteria(branch string, prLabels []string) bool {
 	// Check branch criteria if any are specified
-	if !branchMatchesCriteria(branch) {
+	if !branchMatchesCriteria(branch, combineBranchName, branchPrefix, branchSuffix, branchRegex) {
 		return false
 	}
 
@@ -28,7 +28,7 @@ func PrMatchesCriteria(branch string, prLabels []string) bool {
 }
 
 // checks if a branch matches the branch filtering criteria
-func branchMatchesCriteria(branch string) bool {
+func branchMatchesCriteria(branch, combineBranchName, branchPrefix, branchSuffix, branchRegex string) bool {
 	Logger.Debug("Checking branch criteria", "branch", branch)
 	// Do not attempt to match on existing branches that were created by this CLI
 	if branch == combineBranchName {
