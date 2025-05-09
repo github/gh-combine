@@ -168,8 +168,6 @@ func TestLabelsMatch(t *testing.T) {
 	}
 }
 func TestBranchMatchesCriteria(t *testing.T) {
-	// Remove t.Parallel() at the function level to avoid races on global variables
-
 	// Define test cases
 	tests := []struct {
 		name          string
@@ -269,28 +267,8 @@ func TestBranchMatchesCriteria(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel() // Parallelize at the subtest level, each with their own local variables
 
-			// Save original values of global variables
-			origCombineBranchName := combineBranchName
-			origBranchPrefix := branchPrefix
-			origBranchSuffix := branchSuffix
-			origBranchRegex := branchRegex
-
-			// Restore original values after test
-			defer func() {
-				combineBranchName = origCombineBranchName
-				branchPrefix = origBranchPrefix
-				branchSuffix = origBranchSuffix
-				branchRegex = origBranchRegex
-			}()
-
-			// Set global variables for this specific test
-			combineBranchName = test.combineBranch
-			branchPrefix = test.prefix
-			branchSuffix = test.suffix
-			branchRegex = test.regex
-
-			// Run the function
-			got := branchMatchesCriteria(test.branch)
+			 // Run the function
+			got := branchMatchesCriteria(test.branch, test.combineBranch, test.prefix, test.suffix, test.regex)
 
 			// Check the result
 			if got != test.want {
