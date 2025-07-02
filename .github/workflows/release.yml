@@ -55,7 +55,7 @@ jobs:
           artifact-ids: ${{ needs.release.outputs.artifact-id }}
 
       - name: attest build provenance
-        uses: actions/attest-build-provenance@v2.3.0
+        uses: actions/attest-build-provenance@v2.4.0
         with:
           subject-path: "."
 
