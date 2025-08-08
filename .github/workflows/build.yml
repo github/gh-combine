@@ -23,6 +23,11 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
+      - name: goreleaser
+        uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # pin@v6
+        with:
+          install-only: true
+
       - name: bootstrap
         run: script/bootstrap
 
