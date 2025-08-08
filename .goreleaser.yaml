@@ -3,12 +3,10 @@
 
 version: 2
 
-before:
-  hooks:
-    - go mod tidy
-
 builds:
-  - main: ./cmd/gh-combine
+  - main: ./cmd/gh-combine # Default: `.`.
+    dir: "."
+    binary: gh-combine # Default: Project directory name.
     env:
       - CGO_ENABLED=0
       - GOPROXY=off
@@ -17,23 +15,44 @@ builds:
     flags:
       - -trimpath
       - -mod=vendor
+      - -v
     goos:
       - linux
       - darwin
+      - windows
+      - freebsd
     ldflags:
-      - -s -w -X github.com/github/gh-combine/internal/version.tag={{.Tag}} -X github.com/github/gh-combine/internal/version.commit={{.FullCommit}} -X github.com/github/gh-combine/internal/version.buildTime={{.Date}}
+      - -s -w -X github.com/github/gh-combine/internal/version.tag={{.Tag}} -X github.com/github/gh-combine/internal/version.commit={{.FullCommit}} -X github.com/github/gh-combine/internal/version.buildTime={{.CommitDate}}
 
 archives:
-  - name_template: "{{ .Os }}-{{ .Arch }}"
-    format: binary
+  - formats:
+      - binary
+    meta: true
+    # Archive name.
+    #
+    # Default:
+    # - if format is `binary`:
+    #   - `{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}`
+    # - if format is anything else:
+    #   - `{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}`
+    # Templates: allowed.
+    name_template: '{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
 
+# snapshots are used for testing and development purposes
+# build snapshots with `goreleaser build --snapshot --clean`
 snapshot:
-  name_template: "{{ .Tag }}-next"
+  version_template: "{{ .Version }}-dev-{{.ShortCommit}}"
+
+checksum:
+  name_template: "checksums.txt"
 
 changelog:
   use: github-native
 
+report_sizes: true
+
 release:
   draft: false
+  include_meta: true
 
 dist: "./dist"
