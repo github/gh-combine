@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
-# vim: set ts=2 sw=2 tw=0 fo=cnqoj
 
 version: 2
 
@@ -25,9 +24,9 @@ builds:
       - -s -w -X github.com/github/gh-combine/internal/version.tag={{.Tag}} -X github.com/github/gh-combine/internal/version.commit={{.FullCommit}} -X github.com/github/gh-combine/internal/version.buildTime={{.CommitDate}}
 
 archives:
-  - formats:
-      - binary
-    meta: true
+  - formats: binary
+    name_template: "{{ .Os }}-{{ .Arch }}"
+    
 
 # snapshots are used for testing and development purposes
 # build snapshots with `goreleaser build --snapshot --clean`
