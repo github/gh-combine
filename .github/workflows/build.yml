@@ -23,5 +23,8 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
+      - name: bootstrap
+        run: script/bootstrap
+
       - name: build
-        run: go build -v ./cmd/gh-combine
+        run: script/build

@@ -1,7 +1,8 @@
-#! /usr/bin/env bash
+#!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
-go fmt ./...
-go mod tidy
+source script/env "$@"
+
+go fmt -mod=vendor ./...
 golangci-lint run --fix

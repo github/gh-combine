@@ -1,0 +1,49 @@
+#! /usr/bin/env bash
+
+set -euo pipefail
+
+# COLORS
+export OFF='\033[0m'
+export RED='\033[0;31m'
+export GREEN='\033[0;32m'
+export BLUE='\033[0;34m'
+export PURPLE='\033[0;35m'
+
+# set the working directory to the root of the project
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+export DIR
+
+# The name of the repository is the name of the directory (usually)
+REPO_NAME=$(basename "$PWD")
+export REPO_NAME
+
+# detect OS version and architecture
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    PLATFORM="linux"
+    VERSION="$(awk -F= '/^VERSION_CODENAME=/{print $2}' /etc/os-release | tr -d '"' || echo "unknown")"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    PLATFORM="macos"
+    VERSION=$(sw_vers -productVersion || echo "unknown")
+else
+    PLATFORM="unknown"
+    VERSION="unknown"
+fi
+
+ARCH=$(uname -m || echo "unknown")
+
+export PLATFORM
+export VERSION
+export ARCH
+
+# make the vendor/ directory if it doesn't exist
+mkdir -p "$DIR/vendor/"
+
+# Mark the current GitHub organization based on the remote URL
+# This is used to set GOPRIVATE for private repositories
+# You might want to remove these lines if you're not using a private repo in any of your dependencies
+#CURRENT_GITHUB_ORG=$(git remote get-url origin | sed 's/.*github\.com[\/:]//; s/\/.*$//')
+#export GOPRIVATE="github.com/$CURRENT_GITHUB_ORG/*"
+
+# Set up Go environment variables
+export GOPROXY="off"
+export GOSUMDB="off"

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source script/env "$@"
+
+echo -e "${BLUE}🥾 Bootstrapping...${OFF}"
+
+# Hermetic check: ensure all imports resolve from vendor/ only
+# This avoids touching the network or the module cache.
+go list -mod=vendor -deps ./... > /dev/null
+
+echo -e "${GREEN}✅ Bootstrap complete!${OFF}"

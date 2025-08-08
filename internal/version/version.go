@@ -6,9 +6,9 @@ import (
 )
 
 var (
-	tag    = "dev" // set via ldflags
-	commit = "123abc"
-	date   = "now"
+	tag       = "dev" // set via ldflags
+	commit    = "123abc"
+	buildTime = "now"
 )
 
 const template = "%s (%s) built at %s\nhttps://github.com/github/gh-combine/releases/tag/%s"
@@ -22,18 +22,22 @@ func defaultBuildInfoReader() (*debug.BuildInfo, bool) {
 }
 
 func String() string {
-	info, ok := buildInfoReader()
+	// Start with ldflags values
+	currentCommit := commit
+	currentDate := buildTime
 
+	// Override with VCS info if available and ldflags weren't set
+	info, ok := buildInfoReader()
 	if ok {
 		for _, setting := range info.Settings {
-			if setting.Key == "vcs.revision" {
-				commit = setting.Value
+			if setting.Key == "vcs.revision" && commit == "123abc" {
+				currentCommit = setting.Value
 			}
-			if setting.Key == "vcs.time" {
-				date = setting.Value
+			if setting.Key == "vcs.time" && buildTime == "now" {
+				currentDate = setting.Value
 			}
 		}
 	}
 
-	return fmt.Sprintf(template, tag, commit, date, tag)
+	return fmt.Sprintf(template, tag, currentCommit, currentDate, tag)
 }

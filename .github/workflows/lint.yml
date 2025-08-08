@@ -23,6 +23,9 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
+      - name: bootstrap
+        run: script/bootstrap
+
       # Taken from https://github.com/cli/cli/blob/trunk/.github/workflows/lint.yml
       - name: lint
         run: |

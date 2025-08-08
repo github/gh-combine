@@ -9,14 +9,14 @@ func TestString(t *testing.T) {
 	// Save original values
 	origTag := tag
 	origCommit := commit
-	origDate := date
+	origBuildTime := buildTime
 	origBuildInfoReader := buildInfoReader
 
 	// Restore original values after the test
 	defer func() {
 		tag = origTag
 		commit = origCommit
-		date = origDate
+		buildTime = origBuildTime
 		buildInfoReader = origBuildInfoReader
 	}()
 
@@ -25,7 +25,7 @@ func TestString(t *testing.T) {
 		// Set known values for testing
 		tag = "v1.0.0"
 		commit = "abc123"
-		date = "2025-04-15"
+		buildTime = "2025-04-15"
 
 		// Mock the buildInfoReader to return false so that preset values are used
 		buildInfoReader = func() (*debug.BuildInfo, bool) {
@@ -43,10 +43,10 @@ func TestString(t *testing.T) {
 
 	// Test 2: With mock build info that updates commit and date
 	t.Run("with mock build info", func(t *testing.T) {
-		// Set initial values
+		// Set sentinel values so VCS info will override
 		tag = "dev"
-		commit = "initial-commit"
-		date = "initial-date"
+		commit = "123abc"
+		buildTime = "now"
 
 		// Create mock build info with specific values
 		mockSettings := []debug.BuildSetting{
@@ -75,7 +75,7 @@ func TestString(t *testing.T) {
 		// Set initial values
 		tag = "dev"
 		commit = "unchanged-commit"
-		date = "unchanged-date"
+		buildTime = "unchanged-date"
 
 		// Empty build settings
 		buildInfoReader = func() (*debug.BuildInfo, bool) {
@@ -88,6 +88,34 @@ func TestString(t *testing.T) {
 
 		// The values should remain unchanged
 		expected := "dev (unchanged-commit) built at unchanged-date\nhttps://github.com/github/gh-combine/releases/tag/dev"
+		if result != expected {
+			t.Errorf("Expected version string to be:\n%q\nbut got:\n%q", expected, result)
+		}
+	})
+
+	// Test 4: ldflags values should take precedence over VCS info
+	t.Run("ldflags precedence over vcs", func(t *testing.T) {
+		// Set non-sentinel values (simulating ldflags)
+		tag = "v2.0.0"
+		commit = "ldflags-commit"
+		buildTime = "ldflags-time"
+
+		// VCS info that should be ignored
+		mockSettings := []debug.BuildSetting{
+			{Key: "vcs.revision", Value: "vcs-commit-hash"},
+			{Key: "vcs.time", Value: "vcs-build-time"},
+		}
+
+		buildInfoReader = func() (*debug.BuildInfo, bool) {
+			return &debug.BuildInfo{
+				Settings: mockSettings,
+			}, true
+		}
+
+		result := String()
+
+		// ldflags values should be used, not VCS
+		expected := "v2.0.0 (ldflags-commit) built at ldflags-time\nhttps://github.com/github/gh-combine/releases/tag/v2.0.0"
 		if result != expected {
 			t.Errorf("Expected version string to be:\n%q\nbut got:\n%q", expected, result)
 		}
