@@ -11,11 +11,17 @@ builds:
   - main: ./cmd/gh-combine
     env:
       - CGO_ENABLED=0
+      - GOPROXY=off
+      - GOSUMDB=off
+      - SOURCE_DATE_EPOCH={{ .CommitTimestamp }}
+    flags:
+      - -trimpath
+      - -mod=vendor
     goos:
       - linux
       - darwin
     ldflags:
-      - -s -w -X github.com/github/gh-combine/internal/version.tag={{.Tag}}
+      - -s -w -X github.com/github/gh-combine/internal/version.tag={{.Tag}} -X github.com/github/gh-combine/internal/version.commit={{.FullCommit}} -X github.com/github/gh-combine/internal/version.buildTime={{.Date}}
 
 archives:
   - name_template: "{{ .Os }}-{{ .Arch }}"
