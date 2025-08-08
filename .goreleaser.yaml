@@ -3,9 +3,9 @@
 version: 2
 
 builds:
-  - main: ./cmd/gh-combine # Default: `.`.
+  - main: ./cmd/{{ .ProjectName }}
     dir: "."
-    binary: gh-combine # Default: Project directory name.
+    binary: "{{ .ProjectName }}"
     env:
       - CGO_ENABLED=0
       - GOPROXY=off
@@ -21,7 +21,7 @@ builds:
       - windows
       - freebsd
     ldflags:
-      - -s -w -X github.com/github/gh-combine/internal/version.tag={{.Tag}} -X github.com/github/gh-combine/internal/version.commit={{.FullCommit}} -X github.com/github/gh-combine/internal/version.buildTime={{.CommitDate}}
+      - -s -w -X {{ .ModulePath }}/internal/version.tag={{.Tag}} -X {{ .ModulePath }}/internal/version.commit={{.FullCommit}} -X {{ .ModulePath }}/internal/version.buildTime={{.CommitDate}}
 
 archives:
   - formats: binary
