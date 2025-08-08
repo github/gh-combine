@@ -6,7 +6,8 @@ package tzlocal
 import (
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
+	"strings"
 )
 
 const localZoneFile = "/etc/localtime" // symlinked file - set by OS
@@ -14,22 +15,21 @@ const localZoneFile = "/etc/localtime" // symlinked file - set by OS
 func inferFromPath(p string) (string, error) {
 	var name string
 	var err error
-	dir, lname := path.Split(p)
 
-	if len(dir) == 0 || len(lname) == 0 {
+	parts := strings.Split(p, string(filepath.Separator))
+	for i := range parts {
+		if parts[i] == "zoneinfo" || parts[i] == "zoneinfo.default" {
+			parts = parts[i+1:]
+			break
+		}
+	}
+
+	if len(parts) < 1 {
 		err = fmt.Errorf("cannot infer timezone name from path: %q", p)
 		return name, err
 	}
 
-	_, fname := path.Split(dir[:len(dir)-1])
-
-	if fname == "zoneinfo" {
-		name = lname // e.g. /usr/share/zoneinfo/Japan
-	} else {
-		name = fname + string(os.PathSeparator) + lname // e.g. /usr/share/zoneinfo/Asia/Tokyo
-	}
-
-	return name, err
+	return filepath.Join(parts...), nil
 }
 
 // LocalTZ will run `/etc/localtime` and get the timezone from the resulting value `/usr/share/zoneinfo/America/New_York`
@@ -46,7 +46,7 @@ func LocalTZ() (string, error) {
 		return name, err
 	}
 
-	p, err := os.Readlink(localZoneFile)
+	p, err := filepath.EvalSymlinks(localZoneFile)
 	if err != nil {
 		return name, err
 	}

@@ -25,7 +25,6 @@ func EnvTZ() (string, bool) {
 
 // RuntimeTZ get the full timezone name of the local machine
 func RuntimeTZ() (string, error) {
-
 	// Get the timezone from the TZ env variable
 	if name, ok := EnvTZ(); ok {
 		return name, nil
@@ -34,8 +33,7 @@ func RuntimeTZ() (string, error) {
 	// Get the timezone from the system file
 	name, err := LocalTZ()
 	if err != nil {
-		err = fmt.Errorf("failed to get local machine timezone: %w", err)
-		return "", err
+		return "", fmt.Errorf("failed to get local machine timezone: %w", err)
 	}
 
 	return name, err

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source script/env "$@"
+
+# Get build information for embedding into binary
+COMMIT_SHA="$(git rev-parse HEAD)"
+BUILD_TIME="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+#go build -mod=vendor -ldflags "-X github.com/github/gh-combine/internal/version.commit=${COMMIT_SHA} -X github.com/github/gh-combine/internal/version.buildTime=${BUILD_TIME}" -v ./cmd/gh-combine
+
+goreleaser check
+
+# Pass all arguments through to goreleaser build
+goreleaser build --snapshot --clean "$@"
+
+echo -e "${GREEN}Build completed successfully!${OFF}"

@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source script/env "$@"
+
+# Always reset env on exit (success or failure)
+restore_env() {
+	export GOPROXY="off"
+	export GOSUMDB="off"
+}
+trap restore_env EXIT
+
+# Parse flags
+ALL=0
+for arg in "$@"; do
+	case "$arg" in
+		--all)
+			ALL=1
+			;;
+	esac
+done
+
+export GOPROXY="https://proxy.golang.org"
+export GOSUMDB="sum.golang.org"
+unset GOFLAGS  # to avoid forcing -mod=vendor
+
+# Update deps
+if [ "$ALL" -eq 1 ]; then
+	echo -e "${BLUE}Updating ALL modules (direct + transitive)...${OFF}"
+	echo -e "${BLUE}Includes MAJOR version bumps (go get -u all).${OFF}"
+	go get -u all
+else
+	echo -e "${BLUE}Updating direct deps to latest compatible versions...${OFF}"
+	echo -e "${BLUE}(minor/patch only; use --all for majors) (go get -u ./...).${OFF}"
+	go get -u ./...
+fi
+
+go mod tidy
+go mod vendor
+go mod verify
+
+echo -e "${GREEN}Dependencies updated successfully!${OFF}"
