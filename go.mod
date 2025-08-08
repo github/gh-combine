@@ -1,8 +1,6 @@
 module github.com/github/gh-combine
 
-go 1.23.0
-
-toolchain go1.23.8
+go 1.23.8
 
 require github.com/briandowns/spinner v1.23.2
 
