@@ -220,7 +220,7 @@ This project uses [goreleaser](https://goreleaser.com/) to build binaries and [a
 You can verify the release binaries by following these steps:
 
 1. Download a release from the [releases page](https://github.com/github/gh-combine/releases).
-2. Verify it `gh attestation verify --owner github ~/Downloads/darwin-arm64` (an example for darwin-arm64).
+2. Verify it `gh attestation verify --owner github ~/Downloads/gh-combine_darwin-arm64` (an example for darwin-arm64).
 
 ---
 
