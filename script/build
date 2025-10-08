@@ -12,7 +12,21 @@ BUILD_TIME="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
 goreleaser check
 
-# Pass all arguments through to goreleaser build
-goreleaser build --snapshot --clean "$@"
+# Check if --release flag is passed
+if [[ " $* " == *" --release "* ]]; then
+  # Remove --release from arguments and run goreleaser in release mode
+  args=("$@")
+  filtered_args=()
+  for arg in "${args[@]}"; do
+    if [[ "$arg" != "--release" ]]; then
+      filtered_args+=("$arg")
+    fi
+  done
+  
+  goreleaser release --clean "${filtered_args[@]}"
+else
+  # Default: Pass all arguments through to goreleaser build in snapshot mode
+  goreleaser build --snapshot --clean "$@"
+fi
 
 echo -e "${GREEN}Build completed successfully!${OFF}"
