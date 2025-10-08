@@ -8,6 +8,7 @@ echo -e "${BLUE}🥾 Bootstrapping...${OFF}"
 
 # Hermetic check: ensure all imports resolve from vendor/ only
 # This avoids touching the network or the module cache.
+# This command will fail if the project is not fully vendored.
 go list -mod=vendor -deps ./... > /dev/null
 
 echo -e "${GREEN}✅ Bootstrap complete!${OFF}"
