@@ -29,7 +29,7 @@ else
   goreleaser build --snapshot --clean "$@"
 fi
 
-if [[ "$CI" == "true" ]]; then
+if [[ "${CI:-false}" == "true" ]]; then
   tree -L 2 -a --dirsfirst -C -F -h -D dist/
   echo "artifact_dir=dist" >> $GITHUB_OUTPUT
 fi
