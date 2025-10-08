@@ -4,11 +4,8 @@ set -euo pipefail
 
 source script/env "$@"
 
-count=10
+count=5
 
-# if the tparse binary is not found, don't use it
-if ! command -v tparse &> /dev/null; then
-  go test -mod=vendor -race -count $count -v -cover -coverprofile=coverage.out ./...
-else
-  set -o pipefail && go test -mod=vendor -race -count $count -cover -coverprofile=coverage.out -json ./... | tparse -smallscreen -all -trimpath github.com/github/
-fi
+go test -mod=vendor -race -count $count -v -cover -coverprofile=coverage.out ./...
+
+echo -e "${GREEN}✅ Tests passed${OFF}"

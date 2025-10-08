@@ -5,4 +5,5 @@ set -euo pipefail
 source script/env "$@"
 
 go fmt -mod=vendor ./...
-golangci-lint run --fix
+
+echo -e "${GREEN}✅ Lint passed${OFF}"

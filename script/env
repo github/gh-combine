@@ -47,3 +47,7 @@ mkdir -p "$DIR/vendor/"
 # Set up Go environment variables
 export GOPROXY="off"
 export GOSUMDB="off"
+
+# Print Go version
+GO_VERSION=$(go version | awk '{print $3}')
+echo -e "Go version: ${BLUE}${GO_VERSION}${OFF}"
