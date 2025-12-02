@@ -244,6 +244,8 @@ func mapFromString(str string) (*yamlmap.Map, error) {
 	return yamlmap.Unmarshal([]byte(str))
 }
 
+// ConfigDir returns the path to the configuration directory.
+//
 // Config path precedence: GH_CONFIG_DIR, XDG_CONFIG_HOME, AppData (windows only), HOME.
 func ConfigDir() string {
 	var path string
@@ -260,6 +262,8 @@ func ConfigDir() string {
 	return path
 }
 
+// StateDir returns the path to the state directory.
+//
 // State path precedence: XDG_STATE_HOME, LocalAppData (windows only), HOME.
 func StateDir() string {
 	var path string
@@ -274,6 +278,8 @@ func StateDir() string {
 	return path
 }
 
+// DataDir returns the path to the data directory.
+//
 // Data path precedence: XDG_DATA_HOME, LocalAppData (windows only), HOME.
 func DataDir() string {
 	var path string
@@ -288,6 +294,8 @@ func DataDir() string {
 	return path
 }
 
+// CacheDir returns the path to the cache directory.
+//
 // Cache path precedence: XDG_CACHE_HOME, LocalAppData (windows only), HOME, legacy gh-cli-cache.
 func CacheDir() string {
 	if a := os.Getenv(xdgCacheHome); a != "" {
