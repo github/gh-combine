@@ -253,8 +253,9 @@ func createBranch(ctx context.Context, client RESTClientInterface, repo github.R
 func mergeBranch(ctx context.Context, client RESTClientInterface, repo github.Repo, base, head string) error {
 	endpoint := fmt.Sprintf("repos/%s/%s/merges", repo.Owner, repo.Repo)
 	payload := map[string]string{
-		"base": base,
-		"head": head,
+		"base":           base,
+		"head":           head,
+		"commit_message": fmt.Sprintf("Merge %s into %s [skip ci]", head, base),
 	}
 	body, err := encodePayload(payload)
 	if err != nil {
