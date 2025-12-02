@@ -22,7 +22,8 @@ func DefaultRESTClient() (*RESTClient, error) {
 	return NewRESTClient(ClientOptions{})
 }
 
-// RESTClient builds a client to send requests to GitHub REST API endpoints.
+// NewRESTClient builds a client to send requests to GitHub REST API endpoints.
+//
 // As part of the configuration a hostname, auth token, default set of headers,
 // and unix domain socket are resolved from the gh environment configuration.
 // These behaviors can be overridden using the opts argument.
@@ -100,6 +101,11 @@ func (c *RESTClient) DoWithContext(ctx context.Context, method string, path stri
 	if resp.StatusCode == http.StatusNoContent {
 		return nil
 	}
+
+	if resp.StatusCode == http.StatusResetContent {
+		return nil
+	}
+
 	defer resp.Body.Close()
 
 	b, err := io.ReadAll(resp.Body)
