@@ -37,7 +37,8 @@ func DefaultHTTPClient() (*http.Client, error) {
 	return NewHTTPClient(ClientOptions{})
 }
 
-// HTTPClient builds a client that can be passed to another library.
+// NewHTTPClient builds a client that can be passed to another library.
+//
 // As part of the configuration a hostname, auth token, default set of headers,
 // and unix domain socket are resolved from the gh environment configuration.
 // These behaviors can be overridden using the opts argument. In this instance
