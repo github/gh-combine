@@ -181,6 +181,35 @@ gh combine owner/repo --ignore-labels wip,dependencies
 gh combine owner/repo --update-branch
 ```
 
+### Changing the Default GitHub Host
+
+When the command is run without `--dry-run`, it combines the PRs and displays a link to the resulting combined PR.
+
+By default, this link uses `github.com` as the host. If you are using a GitHub Enterprise Server or another GitHub host (for example, `github.my-org.com`), you can configure the hostname using either the `GH_COMBINE_HOST` or `GH_HOST` environment variable.
+
+- `GH_COMBINE_HOST` — Sets the hostname used specifically for the combined PR link.
+- `GH_HOST` — Sets the hostname for both the combined PR link and the `gh` CLI.
+
+If both variables are set, `GH_COMBINE_HOST` takes precedence. If neither is set, `github.com` is used.
+
+To configure the host, set `GH_COMBINE_HOST`:
+
+```bash
+export GH_COMBINE_HOST=github.my-org.com
+```
+
+Or, if you also want to configure the host used by the `gh` CLI:
+
+```bash
+export GH_HOST=github.my-org.com
+```
+
+The combined PR link will then be displayed as:
+
+```http
+https://github.my-org.com/<owner>/<repository>/pull/<pull_id>
+```
+
 ### Display Version Information
 
 ```bash
