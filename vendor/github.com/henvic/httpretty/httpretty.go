@@ -106,6 +106,10 @@ type Logger struct {
 	RequestBody bool
 
 	// ResponseHeader received by the client or set by the HTTP handlers.
+	//
+	// A received response's trailers are logged only when ResponseBody is also
+	// enabled and the body is read in full; otherwise httpretty notes that they
+	// were announced but not captured.
 	ResponseHeader bool
 
 	// ResponseBody received by the client or set by the server.
@@ -325,6 +329,21 @@ func (r roundTripper) RoundTrip(req *http.Request) (resp *http.Response, err err
 }
 
 // Middleware for logging incoming requests to a HTTP server.
+//
+// The http.ResponseWriter passed to the wrapped handler is a recorder that
+// captures the response for logging.
+// It forwards http.Flusher when the underlying writer supports it,
+// so handlers can flush as usual. However, http.Hijacker and http.Pusher
+// are not reachable through a direct type assertion.
+//
+// To reach them, or to set read/write deadlines, use http.NewResponseController(w),
+// which unwraps the recorder and operates on the original ResponseWriter:
+//
+//	rc := http.NewResponseController(w)
+//	conn, brw, err := rc.Hijack()
+//
+// Once a connection is hijacked the response bypasses the recorder, so
+// httpretty cannot log its status or body.
 func (l *Logger) Middleware(next http.Handler) http.Handler {
 	return httpHandler{
 		logger: l,
@@ -364,7 +383,11 @@ func (h httpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		buf:             &bytes.Buffer{},
 	}
 	defer p.printServerResponse(req, rec)
-	h.next.ServeHTTP(rec, req)
+	var rw http.ResponseWriter = rec
+	if _, ok := w.(http.Flusher); ok {
+		rw = &flushingRecorder{rec}
+	}
+	h.next.ServeHTTP(rw, req)
 }
 
 // PrintRequest prints a request, even when WithHide is used to hide it.

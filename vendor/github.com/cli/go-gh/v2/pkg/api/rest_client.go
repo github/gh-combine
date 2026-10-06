@@ -15,24 +15,31 @@ import (
 // API requests that are supported by the server.
 type RESTClient struct {
 	client *http.Client
-	host   string
+	// baseURL is the base URL prefix for REST API endpoints (e.g. https://api.github.com/).
+	baseURL string
 }
 
 func DefaultRESTClient() (*RESTClient, error) {
 	return NewRESTClient(ClientOptions{})
 }
 
-// RESTClient builds a client to send requests to GitHub REST API endpoints.
+// NewRESTClient builds a client to send requests to GitHub REST API endpoints.
+//
 // As part of the configuration a hostname, auth token, default set of headers,
-// and unix domain socket are resolved from the gh environment configuration.
+// API host, and unix domain socket are resolved from the gh environment configuration.
 // These behaviors can be overridden using the opts argument.
 func NewRESTClient(opts ClientOptions) (*RESTClient, error) {
+	var err error
 	if optionsNeedResolution(opts) {
-		var err error
 		opts, err = resolveOptions(opts)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	opts, err = resolveAPIHost(opts)
+	if err != nil {
+		return nil, err
 	}
 
 	client, err := NewHTTPClient(opts)
@@ -40,9 +47,15 @@ func NewRESTClient(opts ClientOptions) (*RESTClient, error) {
 		return nil, err
 	}
 
+	baseURL := restPrefix(opts.Host)
+	if opts.APIHost != "" {
+		// The base URL comes with a trailing slash and swapping the host should preserve it.
+		baseURL = swapHost(baseURL, opts.APIHost)
+	}
+
 	return &RESTClient{
-		client: client,
-		host:   opts.Host,
+		client:  client,
+		baseURL: baseURL,
 	}, nil
 }
 
@@ -51,7 +64,7 @@ func NewRESTClient(opts ClientOptions) (*RESTClient, error) {
 // The response is returned rather than being populated
 // into a response argument.
 func (c *RESTClient) RequestWithContext(ctx context.Context, method string, path string, body io.Reader) (*http.Response, error) {
-	url := restURL(c.host, path)
+	url := restURL(c.baseURL, path)
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
@@ -80,7 +93,7 @@ func (c *RESTClient) Request(method string, path string, body io.Reader) (*http.
 // specified path with the specified body.
 // The response is populated into the response argument.
 func (c *RESTClient) DoWithContext(ctx context.Context, method string, path string, body io.Reader, response interface{}) error {
-	url := restURL(c.host, path)
+	url := restURL(c.baseURL, path)
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return err
@@ -100,6 +113,11 @@ func (c *RESTClient) DoWithContext(ctx context.Context, method string, path stri
 	if resp.StatusCode == http.StatusNoContent {
 		return nil
 	}
+
+	if resp.StatusCode == http.StatusResetContent {
+		return nil
+	}
+
 	defer resp.Body.Close()
 
 	b, err := io.ReadAll(resp.Body)
@@ -150,11 +168,11 @@ func (c *RESTClient) Put(path string, body io.Reader, resp interface{}) error {
 	return c.Do(http.MethodPut, path, body, resp)
 }
 
-func restURL(hostname string, pathOrURL string) string {
+func restURL(baseURL string, pathOrURL string) string {
 	if strings.HasPrefix(pathOrURL, "https://") || strings.HasPrefix(pathOrURL, "http://") {
 		return pathOrURL
 	}
-	return restPrefix(hostname) + pathOrURL
+	return baseURL + pathOrURL
 }
 
 func restPrefix(hostname string) string {

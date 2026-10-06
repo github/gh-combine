@@ -6,7 +6,9 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"maps"
 	"mime"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"slices"
@@ -50,7 +52,7 @@ func (p *printer) flush() {
 	fmt.Fprint(w, p.buf.String())
 }
 
-func (p *printer) print(a ...interface{}) {
+func (p *printer) print(a ...any) {
 	p.logger.mu.Lock()
 	defer p.logger.mu.Unlock()
 	w := p.logger.getWriter()
@@ -61,7 +63,7 @@ func (p *printer) print(a ...interface{}) {
 	fmt.Fprint(&p.buf, a...)
 }
 
-func (p *printer) println(a ...interface{}) {
+func (p *printer) println(a ...any) {
 	p.logger.mu.Lock()
 	defer p.logger.mu.Unlock()
 	w := p.logger.getWriter()
@@ -72,7 +74,7 @@ func (p *printer) println(a ...interface{}) {
 	fmt.Fprintln(&p.buf, a...)
 }
 
-func (p *printer) printf(format string, a ...interface{}) {
+func (p *printer) printf(format string, a ...any) {
 	p.logger.mu.Lock()
 	defer p.logger.mu.Unlock()
 	w := p.logger.getWriter()
@@ -111,7 +113,7 @@ func (p *printer) printRequestInfo(req *http.Request) {
 	}
 }
 
-// checkFilter checkes if the request is filtered and if the Request value is nil.
+// checkFilter checks if the request is filtered and if the Request value is nil.
 func (p *printer) checkFilter(req *http.Request) (skip bool) {
 	filter := p.logger.getFilter()
 	if req == nil {
@@ -148,9 +150,23 @@ func (p *printer) printResponse(resp *http.Response) {
 		p.printResponseHeader(resp.Proto, resp.Status, resp.Header)
 		p.maybeOnReady()
 	}
+
+	// The client only fills resp.Trailer once the body is read to EOF by httpretty.
+	// When the body is left unread, too large, binary, or filtered we don't capture trailers.
+	var readToEnd bool
 	if p.logger.ResponseBody && resp.Body != nil && (resp.Request == nil || resp.Request.Method != http.MethodHead) {
-		p.printResponseBodyOut(resp)
+		readToEnd = p.printResponseBodyOut(resp)
 		p.maybeOnReady()
+	}
+	if p.logger.ResponseHeader && len(resp.Trailer) > 0 {
+		switch {
+		case hasTrailerValues(resp.Trailer):
+			p.printTrailers('<', resp.Trailer)
+			p.maybeOnReady()
+		case !readToEnd:
+			p.printf("* %s\n", p.format(color.FgBlue, "trailers announced but not captured"))
+			p.maybeOnReady()
+		}
 	}
 }
 
@@ -166,31 +182,34 @@ func (p *printer) checkBodyFiltered(h http.Header) (skip bool, err error) {
 	return false, nil
 }
 
-func (p *printer) printResponseBodyOut(resp *http.Response) {
+// printResponseBodyOut prints the client response body and reports whether the
+// body was read to EOF.
+func (p *printer) printResponseBodyOut(resp *http.Response) (readToEnd bool) {
 	if resp.ContentLength == 0 {
-		return
+		return true
 	}
 	skip, err := p.checkBodyFiltered(resp.Header)
 	if err != nil {
 		p.printf("* %s\n", p.format(color.FgRed, "error on response body filter: ", err.Error()))
 	}
 	if skip {
-		return
+		return false
 	}
 	if contentType := resp.Header.Get("Content-Type"); contentType != "" && isBinaryMediatype(contentType) {
 		p.println("* body contains binary data")
-		return
+		return false
 	}
 	if p.logger.MaxResponseBody > 0 && resp.ContentLength > p.logger.MaxResponseBody {
 		p.printf("* body is too long (%d bytes) to print, skipping (longer than %d bytes)\n", resp.ContentLength, p.logger.MaxResponseBody)
-		return
+		return false
 	}
 	contentType := resp.Header.Get("Content-Type")
 	if resp.ContentLength == -1 {
-		if newBody := p.printBodyUnknownLength(contentType, p.logger.MaxResponseBody, resp.Body); newBody != nil {
+		newBody, readToEnd := p.printBodyUnknownLength(contentType, p.logger.MaxResponseBody, resp.Body)
+		if newBody != nil {
 			resp.Body = newBody
 		}
-		return
+		return readToEnd
 	}
 	var buf bytes.Buffer
 	tee := io.TeeReader(resp.Body, &buf)
@@ -199,13 +218,14 @@ func (p *printer) printResponseBodyOut(resp *http.Response) {
 		resp.Body = io.NopCloser(&buf)
 	}()
 	p.printBodyReader(contentType, tee)
+	return true
 }
 
 // isBinary uses heuristics to guess if file is binary (actually, "printable" in the terminal).
 // See discussion at https://groups.google.com/forum/#!topic/golang-nuts/YeLL7L7SwWs
 func isBinary(body []byte) bool {
 	if len(body) > 512 {
-		body = body[512:]
+		body = body[:512]
 	}
 	// If file contains UTF-8 OR UTF-16 BOM, consider it non-binary.
 	// Reference: https://tools.ietf.org/html/draft-ietf-websec-mime-sniff-03#section-5
@@ -243,6 +263,7 @@ var binaryMediatypes = map[string]struct{}{
 	"video":                         {},
 	"application/vnd.ms-fontobject": {},
 	"font":                          {},
+	"application/gzip":              {},
 	"application/x-gzip":            {},
 	"application/zip":               {},
 	"application/x-rar-compressed":  {},
@@ -263,7 +284,8 @@ func isBinaryMediatype(mediatype string) bool {
 
 const maxDefaultUnknownReadable = 4096 // bytes
 
-func (p *printer) printBodyUnknownLength(contentType string, maxLength int64, r io.ReadCloser) (newBody io.ReadCloser) {
+// printBodyUnknownLength is used for (tentatively) printing a body of unknown length.
+func (p *printer) printBodyUnknownLength(contentType string, maxLength int64, r io.ReadCloser) (newBody io.ReadCloser, readToEnd bool) {
 	if maxLength == 0 {
 		maxLength = maxDefaultUnknownReadable
 	}
@@ -277,10 +299,12 @@ func (p *printer) printBodyUnknownLength(contentType string, maxLength int64, r 
 	// Avoiding returning early to mitigate any risk of bad reader implementations that might
 	// send something even after returning io.EOF if read again.
 	case err == io.EOF && n == 0:
+		readToEnd = true
 	case err == nil && int64(n) > maxLength:
 		p.printf("* body is too long, skipping (contains more than %d bytes)\n", n-1)
 	case err == io.ErrUnexpectedEOF || err == nil:
 		// cannot pass same bytes reader below because we only read it once.
+		readToEnd = true
 		p.printBodyReader(contentType, bytes.NewReader(pb))
 	default:
 		p.printf("* cannot read body: %v (%d bytes read)\n", err, n)
@@ -309,14 +333,8 @@ func (p *printer) printTLSInfo(state *tls.ConnectionState, skipVerifyChains bool
 	if state == nil {
 		return
 	}
-	protocol := tlsProtocolVersions[state.Version]
-	if protocol == "" {
-		protocol = fmt.Sprintf("%#v", state.Version)
-	}
-	cipher := tlsCiphers[state.CipherSuite]
-	if cipher == "" {
-		cipher = fmt.Sprintf("%#v", state.CipherSuite)
-	}
+	protocol := tls.VersionName(state.Version)
+	cipher := tls.CipherSuiteName(state.CipherSuite)
 	p.printf("* TLS connection using %s / %s", p.format(color.FgBlue, protocol), p.format(color.FgBlue, cipher))
 	if !skipVerifyChains && state.VerifiedChains == nil {
 		p.print(" (insecure=true)")
@@ -377,13 +395,24 @@ func (p *printer) printCertificate(hostname string, cert *x509.Certificate) {
 	p.printf(`*  subject: %v
 *  start date: %v
 *  expire date: %v
-*  issuer: %v
 `,
 		p.format(color.FgBlue, cert.Subject),
 		p.format(color.FgBlue, cert.NotBefore.Format(time.UnixDate)),
 		p.format(color.FgBlue, cert.NotAfter.Format(time.UnixDate)),
-		p.format(color.FgBlue, cert.Issuer),
 	)
+	if hostname != "" {
+		if san, ok := matchedSAN(hostname, cert); ok {
+			if san == "" {
+				p.printf("*  subjectAltName: \"%s\" matches cert's IP address!\n",
+					p.format(color.FgBlue, hostname))
+			} else {
+				p.printf("*  subjectAltName: \"%s\" matches cert's \"%s\"\n",
+					p.format(color.FgBlue, hostname),
+					p.format(color.FgBlue, san))
+			}
+		}
+	}
+	p.printf("*  issuer: %v\n", p.format(color.FgBlue, cert.Issuer))
 	if hostname == "" {
 		return
 	}
@@ -394,12 +423,64 @@ func (p *printer) printCertificate(hostname string, cert *x509.Certificate) {
 	p.println("*  TLS certificate verify ok.")
 }
 
-func (p *printer) printServerResponse(req *http.Request, rec *responseRecorder) {
-	if p.logger.ResponseHeader {
-		// TODO(henvic): see how httptest.ResponseRecorder adds extra headers due to Content-Type detection
-		// and other stuff (Date). It would be interesting to show them here too (either as default or opt-in).
-		p.printResponseHeader(req.Proto, fmt.Sprintf("%d %s", rec.statusCode, http.StatusText(rec.statusCode)), rec.Header())
+// matchedSAN finds the cert SAN entry that matches hostname, following the
+// RFC 6125 wildcard rule (leftmost label only). For IP-literal hostnames it
+// scans IPAddresses and returns "" with ok=true to signal an IP match.
+func matchedSAN(hostname string, cert *x509.Certificate) (string, bool) {
+	if ip := net.ParseIP(hostname); ip != nil {
+		for _, certIP := range cert.IPAddresses {
+			if certIP.Equal(ip) {
+				return "", true
+			}
+		}
+		return "", false
 	}
+	host := strings.TrimSuffix(strings.ToLower(hostname), ".")
+	for _, name := range cert.DNSNames {
+		if matchHostname(strings.ToLower(name), host) {
+			return name, true
+		}
+	}
+	return "", false
+}
+
+func matchHostname(pattern, host string) bool {
+	pattern = strings.TrimSuffix(pattern, ".")
+	if pattern == "" || host == "" {
+		return false
+	}
+	patternParts := strings.Split(pattern, ".")
+	hostParts := strings.Split(host, ".")
+	if len(patternParts) != len(hostParts) {
+		return false
+	}
+	for i, part := range patternParts {
+		if i == 0 && part == "*" {
+			continue
+		}
+		if part != hostParts[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// printServerResponse prints the headers the handler set.
+// Naturally, we do not capture anything added later, such as Date.
+func (p *printer) printServerResponse(req *http.Request, rec *responseRecorder) {
+	var trailers http.Header
+	if p.logger.ResponseHeader {
+		var headers http.Header
+		headers, trailers = splitTrailers(rec.Header())
+		p.printResponseHeader(req.Proto, fmt.Sprintf("%d %s", rec.statusCode, http.StatusText(rec.statusCode)), headers)
+	}
+	p.printServerResponseBody(rec)
+	if p.logger.ResponseHeader && hasTrailerValues(trailers) {
+		p.printTrailers('<', trailers)
+	}
+}
+
+func (p *printer) printServerResponseBody(rec *responseRecorder) {
 	if !p.logger.ResponseBody || rec.size == 0 {
 		return
 	}
@@ -410,7 +491,7 @@ func (p *printer) printServerResponse(req *http.Request, rec *responseRecorder) 
 	if skip {
 		return
 	}
-	if mediatype := req.Header.Get("Content-Type"); mediatype != "" && isBinaryMediatype(mediatype) {
+	if mediatype := rec.Header().Get("Content-Type"); mediatype != "" && isBinaryMediatype(mediatype) {
 		p.println("* body contains binary data")
 		return
 	}
@@ -421,40 +502,214 @@ func (p *printer) printServerResponse(req *http.Request, rec *responseRecorder) 
 	p.printBodyReader(rec.Header().Get("Content-Type"), rec.buf)
 }
 
+// statusColor returns color attributes for an HTTP status line
+// based on the status class:
+// 1xx (informational), 2xx (success) is green, 3xx (redirection) is yellow,
+// 4xx (client error) is red, and 5xx (server error) is bold red.
+// Any non-standard classes (0xx, 6xx-9xx) are blue,
+// and an empty status or one that doesn't start with a digit, is shown red.
+func statusColor(status string) []color.Attribute {
+	if len(status) == 0 {
+		return []color.Attribute{color.FgRed}
+	}
+	switch status[0] {
+	case '2':
+		return []color.Attribute{color.FgGreen}
+	case '3':
+		return []color.Attribute{color.FgYellow}
+	case '4':
+		return []color.Attribute{color.FgRed}
+	case '5':
+		return []color.Attribute{color.Bold, color.FgRed}
+	case '0', '1', '6', '7', '8', '9':
+		return []color.Attribute{color.FgBlue}
+	default:
+		return []color.Attribute{color.FgRed}
+	}
+}
+
 func (p *printer) printResponseHeader(proto, status string, h http.Header) {
 	p.printf("< %s %s\n",
 		p.format(color.FgBlue, color.Bold, proto),
-		p.format(color.FgRed, status))
+		p.format(statusColor(status), status))
 	p.printHeaders('<', h)
 	p.println()
 }
 
+// printTrailers that are sent after the body.
+func (p *printer) printTrailers(prefix rune, h http.Header) {
+	p.printf("%c Trailers:\n", prefix)
+	p.printHeaders(prefix, h)
+	p.println()
+}
+
+// hasTrailerValues reports whether h carries at least one non-empty value.
+// The HTTP client pre-populates resp.Trailer with nil values for each key
+// declared in the response's Trailer header before the body is read to EOF,
+// so a non-zero len(resp.Trailer) alone does not mean any trailer value is
+// actually available to print.
+func hasTrailerValues(h http.Header) bool {
+	for _, v := range h {
+		if len(v) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// splitTrailers separates a handled server response's recorded header map into
+// the headers sent in the header block and the trailers sent after the body.
+//
+// An http.Server emits trailers two ways, both reconstructed here the same way
+// httptest.ResponseRecorder.Result builds its Trailer: keys announced ahead of
+// time in the "Trailer" header, and keys written with the http.TrailerPrefix
+// magic prefix. Both otherwise linger in the ResponseWriter header map, so they
+// are kept out of headers to avoid printing them as if they were sent with the
+// header block. The "Trailer" announcement header itself is left in headers.
+//
+// In the common case where h carries no trailers, h itself is returned along
+// with nil trailers, so callers must treat both maps as read-only.
+func splitTrailers(h http.Header) (headers, trailers http.Header) {
+	var announced map[string]struct{}
+	for _, list := range h["Trailer"] {
+		for key := range strings.SplitSeq(list, ",") {
+			if key = http.CanonicalHeaderKey(strings.TrimSpace(key)); key != "" {
+				if announced == nil {
+					announced = map[string]struct{}{}
+				}
+				announced[key] = struct{}{}
+			}
+		}
+	}
+	split := false
+	for key := range h {
+		if _, ok := announced[key]; ok {
+			split = true
+			break
+		}
+		if strings.HasPrefix(key, http.TrailerPrefix) {
+			split = true
+			break
+		}
+	}
+	if !split {
+		return h, nil
+	}
+	headers = http.Header{}
+	trailers = http.Header{}
+	for key, vv := range h {
+		if _, ok := announced[key]; ok {
+			trailers[key] = vv
+			continue
+		}
+		if name, ok := strings.CutPrefix(key, http.TrailerPrefix); ok {
+			for _, v := range vv {
+				trailers.Add(name, v)
+			}
+			continue
+		}
+		headers[key] = vv
+	}
+	return headers, trailers
+}
+
 func (p *printer) printBodyReader(contentType string, r io.Reader) {
-	mediatype, _, _ := mime.ParseMediaType(contentType)
 	body, err := io.ReadAll(r)
 	if err != nil {
 		p.printf("* cannot read body: %v\n", p.format(color.FgRed, err.Error()))
+		return
+	}
+	p.printBody(contentType, body, 0)
+}
+
+// maxMultipartDepth bounds how deep nested multipart bodies are split into parts;
+// deeper parts are printed as a regular body. Without a bound, a maliciously nested
+// multipart body of n bytes would amplify to O(n²) memory, as splitting each level
+// copies all the levels nested under it.
+const maxMultipartDepth = 2
+
+// printBody of a message or of a part of a multipart message, nested depth levels deep.
+func (p *printer) printBody(contentType string, body []byte, depth int) {
+	mediatype, params, _ := mime.ParseMediaType(contentType)
+	f := p.formatter(mediatype)
+	// A multipart body is printed part by part, unless a formatter handles it.
+	if f == nil && depth < maxMultipartDepth && strings.HasPrefix(mediatype, "multipart/") && params["boundary"] != "" &&
+		p.printMultipart(mediatype, params["boundary"], body, depth) {
 		return
 	}
 	if isBinary(body) {
 		p.println("* body contains binary data")
 		return
 	}
-	for _, f := range p.logger.Formatters {
-		if ok := p.safeBodyMatch(f, mediatype); !ok {
-			continue
-		}
-		var formatted bytes.Buffer
-		switch err := p.safeBodyFormat(f, &formatted, body); {
-		case err != nil:
-			p.printf("* body cannot be formatted: %v\n%s\n", p.format(color.FgRed, err.Error()), string(body))
-		default:
-			p.println(formatted.String())
-		}
+	if f == nil {
+		p.println(string(body))
 		return
 	}
+	var formatted bytes.Buffer
+	if err := p.safeBodyFormat(f, &formatted, body); err != nil {
+		p.printf("* body cannot be formatted: %v\n%s\n", p.format(color.FgRed, err.Error()), string(body))
+		return
+	}
+	p.println(formatted.String())
+}
 
-	p.println(string(body))
+// formatter returns the first formatter matching the media type, if any.
+func (p *printer) formatter(mediatype string) Formatter {
+	for _, f := range p.logger.Formatters {
+		if p.safeBodyMatch(f, mediatype) {
+			return f
+		}
+	}
+	return nil
+}
+
+// printMultipart prints each part of a multipart body on its own, so parts are
+// formatted, and checked for binary content, individually.
+//
+// It reports whether the body was printed. A body that cannot be parsed (say, a
+// truncated one) is left for the caller to print as-is, and nothing is printed here.
+func (p *printer) printMultipart(mediatype, boundary string, body []byte, depth int) bool {
+	type bodyPart struct {
+		header http.Header
+		body   []byte
+	}
+	var parts []bodyPart
+	mr := multipart.NewReader(bytes.NewReader(body), boundary)
+	for {
+		next, err := mr.NextRawPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false
+		}
+		b, err := io.ReadAll(next)
+		if err != nil {
+			return false
+		}
+		parts = append(parts, bodyPart{
+			header: http.Header(next.Header),
+			body:   b,
+		})
+	}
+	if len(parts) == 0 {
+		return false
+	}
+	noun := "parts"
+	if len(parts) == 1 {
+		noun = "part"
+	}
+	p.printf("* %s body with %d %s\n", mediatype, len(parts), noun)
+	for i, part := range parts {
+		p.printf("* part %d\n", i+1)
+		p.printHeaders('|', part.header)
+		if len(part.body) == 0 {
+			continue
+		}
+		p.println()
+		p.printBody(part.header.Get("Content-Type"), part.body, depth+1)
+	}
+	return true
 }
 
 func (p *printer) safeBodyMatch(f Formatter, mediatype string) bool {
@@ -476,7 +731,7 @@ func (p *printer) safeBodyFormat(f Formatter, w io.Writer, src []byte) (err erro
 	return f.Format(w, src)
 }
 
-func (p *printer) format(s ...interface{}) string {
+func (p *printer) format(s ...any) string {
 	if p.logger.Colors {
 		return color.Format(s...)
 	}
@@ -537,12 +792,14 @@ func (p *printer) printRequestHeader(req *http.Request) {
 // addRequestHeaders returns a copy of the given header with an additional headers set, if known.
 func addRequestHeaders(req *http.Request) http.Header {
 	cp := http.Header{}
-	for k, v := range req.Header {
-		cp[k] = v
-	}
+	maps.Copy(cp, req.Header)
 
 	if len(req.Header.Values("Content-Length")) == 0 && req.ContentLength > 0 {
 		cp.Set("Content-Length", fmt.Sprintf("%d", req.ContentLength))
+	}
+
+	if len(req.Header.Values("Transfer-Encoding")) == 0 && len(req.TransferEncoding) > 0 {
+		cp.Set("Transfer-Encoding", strings.Join(req.TransferEncoding, ", "))
 	}
 
 	host := req.Host
@@ -571,7 +828,6 @@ func (p *printer) printRequestBody(req *http.Request) {
 		p.println("* body contains binary data")
 		return
 	}
-	// TODO(henvic): add support for printing multipart/formdata information as body (to responses too).
 	if p.logger.MaxRequestBody > 0 && req.ContentLength > p.logger.MaxRequestBody {
 		p.printf("* body is too long (%d bytes) to print, skipping (longer than %d bytes)\n",
 			req.ContentLength, p.logger.MaxRequestBody)
@@ -588,7 +844,7 @@ func (p *printer) printRequestBody(req *http.Request) {
 		p.printBodyReader(contentType, tee)
 		return
 	}
-	if newBody := p.printBodyUnknownLength(contentType, p.logger.MaxRequestBody, req.Body); newBody != nil {
+	if newBody, _ := p.printBodyUnknownLength(contentType, p.logger.MaxRequestBody, req.Body); newBody != nil {
 		req.Body = newBody
 	}
 }

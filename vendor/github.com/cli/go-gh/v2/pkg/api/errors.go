@@ -27,7 +27,7 @@ type HTTPErrorItem struct {
 	Resource string
 }
 
-// Allow HTTPError to satisfy error interface.
+// Error allows HTTPError to satisfy error interface.
 func (err *HTTPError) Error() string {
 	if msgs := strings.SplitN(err.Message, "\n", 2); len(msgs) > 1 {
 		return fmt.Sprintf("HTTP %d: %s (%s)\n%s", err.StatusCode, msgs[0], err.RequestURL, msgs[1])
@@ -55,7 +55,7 @@ type GraphQLErrorItem struct {
 	Type       string
 }
 
-// Allow GraphQLError to satisfy error interface.
+// Error allows GraphQLError to satisfy error interface.
 func (gr *GraphQLError) Error() string {
 	errorMessages := make([]string, 0, len(gr.Errors))
 	for _, e := range gr.Errors {
@@ -98,6 +98,8 @@ func matchPath(p, expect string) bool {
 }
 
 // HandleHTTPError parses a http.Response into a HTTPError.
+//
+// The function attempts to read the response's body, but it does not close it.
 func HandleHTTPError(resp *http.Response) error {
 	httpError := &HTTPError{
 		Headers:    resp.Header,

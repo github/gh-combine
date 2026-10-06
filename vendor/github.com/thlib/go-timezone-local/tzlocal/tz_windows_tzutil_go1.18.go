@@ -5,13 +5,18 @@ package tzlocal
 
 import (
 	"strings"
+	"syscall"
 
 	"golang.org/x/sys/execabs"
+	"golang.org/x/sys/windows"
 )
 
 // localTZfromTzutil executes command `tzutil /g` to get the name of the time zone Windows is configured to use.
 func localTZfromTzutil() (string, error) {
 	cmd := execabs.Command("tzutil", "/g")
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		CreationFlags: windows.CREATE_NO_WINDOW,
+	}
 	data, err := cmd.Output()
 	if err != nil {
 		return "", err
