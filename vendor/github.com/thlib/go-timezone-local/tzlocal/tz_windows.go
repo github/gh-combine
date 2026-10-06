@@ -14,23 +14,9 @@ const tzDynamicDayLightDisabledKeyVal = "DynamicDaylightTimeDisabled"
 
 // LocalTZ obtains the name of the time zone Windows is configured to use. Returns the corresponding IANA standard name
 func LocalTZ() (string, error) {
-	var dstOff bool
-	const dstOffSuffix = "_dstoff"
-
-	// try tzutil command first - if that is not available, try to read from registry
-	winTZname, errTzUtil := localTZfromTzutil()
-	if strings.HasSuffix(winTZname, dstOffSuffix) {
-		winTZname = strings.TrimSuffix(winTZname, dstOffSuffix)
-		dstOff = true
-	}
-
-	// Try to read from registry
-	if errTzUtil != nil {
-		var errReg error
-		winTZname, dstOff, errReg = localTZfromReg()
-		if errReg != nil { // both methods failed, return both errors
-			return "", fmt.Errorf("failed to read timezone from tzutil %s and registry %s", errTzUtil.Error(), errReg.Error())
-		}
+	winTZname, dstOff, err := localTZInfo()
+	if err != nil {
+		return "", err
 	}
 
 	// Get the IANA time zone from the set time zone.
@@ -39,9 +25,8 @@ func LocalTZ() (string, error) {
 		return "", fmt.Errorf("could not find IANA tz name for set time zone %q", winTZname)
 	}
 
-	// Check if registry key `DynamicDaylightTimeDisabled` value is 0,
-	// which indicates that "Daylight Saving Time" adjustments for the timezone are disabled.
-	// Don't return the timezone name, instead return Etc/GMT+offset.
+	// If daylight saving time adjustments are disabled, return a fixed-offset
+	// zone instead of one that applies the IANA zone's DST transitions.
 	if dstOff {
 		location, err := time.LoadLocation(timezone)
 		if err != nil {
@@ -70,6 +55,29 @@ func LocalTZ() (string, error) {
 	}
 
 	return timezone, nil
+}
+
+// localTZInfo obtains the Windows time zone name and whether daylight saving
+// time is disabled, falling back from the Windows API to tzutil and registry.
+func localTZInfo() (string, bool, error) {
+	winTZname, dstOff, errDynamic := localTZfromDynamicTimeZoneInformation()
+	if errDynamic == nil {
+		return winTZname, dstOff, nil
+	}
+
+	winTZname, errTzUtil := localTZfromTzutil()
+	if errTzUtil == nil {
+		const dstOffSuffix = "_dstoff"
+		dstOff = strings.HasSuffix(winTZname, dstOffSuffix)
+		return strings.TrimSuffix(winTZname, dstOffSuffix), dstOff, nil
+	}
+
+	winTZname, dstOff, errReg := localTZfromReg()
+	if errReg == nil {
+		return winTZname, dstOff, nil
+	}
+
+	return "", false, fmt.Errorf("failed to read timezone from Windows API (%v), tzutil (%v), and registry (%v)", errDynamic, errTzUtil, errReg)
 }
 
 // localTZfromReg obtains the time zone Windows is configured to use from registry.

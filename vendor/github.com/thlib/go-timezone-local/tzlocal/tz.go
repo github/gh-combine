@@ -3,12 +3,15 @@ package tzlocal
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
-// EnvTZ will return the TZ env value if it is set, go will revert any invalid timezone to UTC
+// EnvTZ returns the timezone selected by TZ if it is set. Go treats invalid values as UTC.
 func EnvTZ() (string, bool) {
 	if name, ok := os.LookupEnv("TZ"); ok {
+		// Go accepts an optional leading colon in TZ.
+		name = strings.TrimPrefix(name, ":")
 		// Go treats blank as UTC
 		if name == "" {
 			return "UTC", true

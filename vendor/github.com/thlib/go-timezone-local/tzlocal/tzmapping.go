@@ -6,7 +6,7 @@ package tzlocal
 
 // A lookup table, mapping Windows time zone names to IANA time zone names and vice versa.
 
-// Last created 2025-07-05T15:53:03Z
+// Last created 2026-07-10T11:45:15Z
 
 // WinTZtoIANA maps time zone names used by Windows to those used by IANA
 var WinTZtoIANA = map[string]string{
@@ -153,7 +153,6 @@ var WinTZtoIANA = map[string]string{
 
 // IANAtoWinTZ maps time zone names used by IANA to those used by Windows
 var IANAtoWinTZ = map[string]string{
-    "":"Central Standard Time (Mexico)",
     "Africa/Abidjan":"Greenwich Standard Time",
     "Africa/Accra":"Greenwich Standard Time",
     "Africa/Addis_Ababa":"E. Africa Standard Time",
