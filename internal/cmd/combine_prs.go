@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/api"
@@ -112,7 +113,9 @@ func CombinePRsWithStats(ctx context.Context, graphQlClient *api.GraphQLClient, 
 			return combined, mergeConflicts, "", fmt.Errorf("failed to create combined PR: %w", prErr)
 		}
 		if prNumber > 0 {
-			combinedPRLink = fmt.Sprintf("https://github.com/%s/%s/pull/%d", opts.Repo.Owner, opts.Repo.Repo, prNumber)
+			var gitHubHost = getGitHubHost()
+
+			combinedPRLink = fmt.Sprintf("https://%s/%s/%s/pull/%d", gitHubHost, opts.Repo.Owner, opts.Repo.Repo, prNumber)
 		}
 	}
 
@@ -349,4 +352,19 @@ func encodePayload(payload interface{}) (io.Reader, error) {
 		return nil, err
 	}
 	return bytes.NewReader(data), nil
+}
+
+// getGitHubHost retrieves the GitHub host from environment variables or defaults to "github.com"
+func getGitHubHost() string {
+	var gitHubHost string = os.Getenv("GH_COMBINE_HOST")
+
+	if gitHubHost == "" {
+		gitHubHost = os.Getenv("GH_HOST")
+	}
+
+	if gitHubHost == "" {
+		gitHubHost = "github.com"
+	}
+
+	return gitHubHost
 }
